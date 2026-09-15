@@ -59,3 +59,22 @@ Cómo esta visión se refleja en lo ya prototipado:
 El Login diferencia visualmente el rol (Operativo vs. Estratégico) desde el primer contacto.
 El CRUD aplica validación visual inmediata (bordes rojos + mensaje) — principio de prevención.
 El Dashboard entrega el ranking y los KPIs en la parte superior, con el detalle (gráfico de criterios, cobertura) inmediatamente debajo — principio de revelación progresiva.
+------milton portal-------
+## Estrategia de Documentación en GitHub ("Docs as Code")
+
+Siguiendo el enfoque **Docs as Code**, la documentación técnica y arquitectónica del sistema se mantiene versionada junto con el código fuente. Se creó la carpeta `/docs/uml` dentro de la raíz del repositorio, albergando tanto los archivos de definición de modelos en PlantUML (`.puml`) como sus respectivas imágenes renderizadas (`.png`).
+
+### Estructura de Directorios del Repositorio:
+```plaintext
+Telecom---DSS/
+├── docs/
+│   └── uml/
+│       ├── casos_uso.puml
+│       ├── casos_uso.png
+│       ├── diagrama_clases.puml
+│       ├── diagrama_clases.png
+│       ├── secuencia_recomendacion.puml
+│       └── secuencia_recomendacion.png
+├── prototypes/
+├── diagrams/
+└── README.md
