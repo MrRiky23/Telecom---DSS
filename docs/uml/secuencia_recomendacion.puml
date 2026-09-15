@@ -1,0 +1,33 @@
+@startuml
+autonumber
+actor "Daniela Rojas\n(PYME)" as User
+participant "DashboardUI" as UI
+participant "ControladorDSS" as Control
+participant "MotorAnalitico" as Motor
+database "BaseDeDatos" as DB
+
+User -> UI : Ingresa ubicación, presupuesto y prioridades
+UI -> Control : procesarConsulta(perfil, criterios)
+activate Control
+
+Control -> DB : obtenerPlanesActivos(ubicacion)
+activate DB
+DB --> Control : listaPlanes[]
+deactivate DB
+
+alt Lista de planes vacía o fuera de presupuesto
+    Control --> UI : mostrarAlerta("No hay planes en la zona con ese presupuesto")
+    UI --> User : Notifica recomendación alternativa o ajuste
+else Planes encontrados correctamente
+    Control -> Motor : ejecutarScoring(listaPlanes, criterios)
+    activate Motor
+    Motor -> Motor : calcularPuntajePorCriterio()
+    Motor --> Control : rankingTop3[]
+    deactivate Motor
+
+    Control -> DB : guardarHistorialConsulta()
+    Control --> UI : renderizarDashboardTop3(rankingTop3)
+    deactivate Control
+    UI --> User : Muestra Top 3 y desglose en <5s
+end
+@enduml

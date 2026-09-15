@@ -1,0 +1,27 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Marco Salinas\n(Admin Operativo)" as Admin
+actor "Daniela Rojas\n(Usuario / PYME)" as User
+
+rectangle "SmartPlan DSS - Sistema de Soporte a Decisiones" {
+  usecase "CU01: Gestionar Catálogo de Planes" as CU1
+  usecase "CU02: Validar Cobertura por Zona" as CU2
+  usecase "CU03: Configurar Perfil y Criterios" as CU3
+  usecase "CU04: Generar Recomendación Top 3" as CU4
+  usecase "CU05: Simular Escenarios de Presupuesto" as CU5
+  usecase "CU06: Exportar / Compartir Decisión" as CU6
+}
+
+Admin --> CU1
+Admin --> CU2
+
+User --> CU3
+User --> CU4
+User --> CU5
+User --> CU6
+
+CU4 .> CU1 : <<include>>
+CU5 .> CU4 : <<extends>>
+@enduml

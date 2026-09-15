@@ -1,0 +1,56 @@
+@startuml
+class PlanTelecomunicacion {
+  - String idPlan
+  - String proveedor
+  - String nombrePlan
+  - float precioMensual
+  - int velocidadMbps
+  - int limiteDatosGB
+  - String nivelCobertura
+  - boolean activo
+  + validarCampos(): boolean
+  + esDuplicado(): boolean
+}
+
+class ZonaCobertura {
+  - String idZona
+  - String nombreSector
+  - float porcentajeAlta
+  - float porcentajeMedia
+  - float porcentajeBaja
+}
+
+class PerfilUsuario {
+  - String idPerfil
+  - String ubicacion
+  - float presupuestoMax
+  - int usoEstimadoGB
+}
+
+class CriterioPonderacion {
+  - float pesoPrecio
+  - float pesoVelocidad
+  - float pesoCobertura
+  - float pesoEstabilidad
+  + normalizarPesos(): void
+}
+
+class MotorAnaliticoDSS {
+  - String idAlgoritmo
+  + calcularPuntaje(plan: PlanTelecomunicacion, criterio: CriterioPonderacion): float
+  + generarRankingTop3(planes: List<PlanTelecomunicacion>): List<PlanTelecomunicacion>
+}
+
+class RecomendacionResult {
+  - String idRecomendacion
+  - Date fechaCalculo
+  - float puntajeGlobal
+  + simularEscenario(nuevoPresupuesto: float): RecomendacionResult
+}
+
+PlanTelecomunicacion "*" -- "1" ZonaCobertura : asignado_a
+PerfilUsuario "1" *-- "1" CriterioPonderacion : define
+MotorAnaliticoDSS ..> PlanTelecomunicacion : evalua
+MotorAnaliticoDSS ..> PerfilUsuario : consulta
+MotorAnaliticoDSS --> RecomendacionResult : genera
+@enduml
