@@ -1,0 +1,85 @@
+@startuml
+skinparam linetype ortho
+skinparam class {
+  BackgroundColor<<Fact>> #FDEBD0
+  BorderColor<<Fact>> #C0651A
+  BackgroundColor<<Dim>> #E8F6E9
+  BorderColor<<Dim>> #2E8B3D
+  ArrowColor #7A7A7A
+}
+title Esquema en Estrella – Data Warehouse SmartPlan DSS
+
+entity "FACT_Recomendacion" as FACT <<Fact>> {
+  * idRecomendacion_sk : BIGINT <<PK>>
+  --
+  # idTiempo : INT <<FK>>
+  # idUsuario : INT <<FK>>
+  # idPlan : INT <<FK>>
+  # idZona : INT <<FK>>
+  # idCriterio : INT <<FK>>
+  posicionRanking : INT
+  puntajeIndividual : DECIMAL(5,2)
+  puntajeGlobal : DECIMAL(5,2)
+  precioPlan_snapshot : DECIMAL(8,2)
+  velocidadMbps_snapshot : INT
+  presupuestoMax_snapshot : DECIMAL(8,2)
+  usoEstimadoGB_snapshot : INT
+  esSimulacion : BOOLEAN
+  idRecomendacionOrigen_sk : BIGINT
+}
+
+entity "DIM_Tiempo" as DTIEMPO <<Dim>> {
+  * idTiempo : INT <<PK>>
+  --
+  fecha : DATE
+  dia : INT
+  mes : INT
+  nombreMes : VARCHAR(15)
+  trimestre : INT
+  anio : INT
+  diaSemana : VARCHAR(10)
+  esFinDeSemana : BOOLEAN
+}
+
+entity "DIM_Usuario" as DUSUARIO <<Dim>> {
+  * idUsuario : INT <<PK>>
+  --
+  idPerfilOrigen : INT
+  ubicacion : VARCHAR(100)
+  rangoPresupuesto : VARCHAR(20)
+  segmentoUso : VARCHAR(20)
+}
+
+entity "DIM_Plan" as DPLAN <<Dim>> {
+  * idPlan : INT <<PK>>
+  --
+  idPlanOrigen : INT
+  proveedor : VARCHAR(60)
+  nombrePlan : VARCHAR(80)
+  rangoVelocidad : VARCHAR(20)
+  rangoPrecio : VARCHAR(20)
+  nivelCobertura : VARCHAR(20)
+}
+
+entity "DIM_Zona" as DZONA <<Dim>> {
+  * idZona : INT <<PK>>
+  --
+  idZonaOrigen : INT
+  nombreSector : VARCHAR(80)
+  categoriaCoberturaPredominante : VARCHAR(20)
+}
+
+entity "DIM_Criterio" as DCRIT <<Dim>> {
+  * idCriterio : INT <<PK>>
+  --
+  criterioDominante : VARCHAR(20)
+  descripcion : VARCHAR(100)
+}
+
+DTIEMPO ||--o{ FACT
+DUSUARIO ||--o{ FACT
+DPLAN ||--o{ FACT
+DZONA ||--o{ FACT
+DCRIT ||--o{ FACT
+
+@enduml
