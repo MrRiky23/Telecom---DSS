@@ -1,0 +1,83 @@
+@startuml
+skinparam linetype ortho
+skinparam class {
+  BackgroundColor #EAF2FB
+  BorderColor #2C6FAD
+  ArrowColor #2C6FAD
+}
+title Modelo Relacional OLTP – SmartPlan DSS (3FN)
+
+entity "ZonaCobertura" as ZC {
+  * idZona : INT <<PK>>
+  --
+  nombreSector : VARCHAR(80)
+  porcentajeAlta : DECIMAL(5,2)
+  porcentajeMedia : DECIMAL(5,2)
+  porcentajeBaja : DECIMAL(5,2)
+}
+
+entity "PlanTelecomunicacion" as PT {
+  * idPlan : INT <<PK>>
+  --
+  proveedor : VARCHAR(60)
+  nombrePlan : VARCHAR(80)
+  precioMensual : DECIMAL(8,2)
+  velocidadMbps : INT
+  limiteDatosGB : INT
+  nivelCobertura : VARCHAR(20)
+  activo : BOOLEAN
+  # idZona : INT <<FK>>
+}
+
+entity "PerfilUsuario" as PU {
+  * idPerfil : INT <<PK>>
+  --
+  ubicacion : VARCHAR(100)
+  presupuestoMax : DECIMAL(8,2)
+  usoEstimadoGB : INT
+}
+
+entity "CriterioPonderacion" as CP {
+  * idPerfil : INT <<PK, FK>>
+  --
+  pesoPrecio : DECIMAL(4,2)
+  pesoVelocidad : DECIMAL(4,2)
+  pesoCobertura : DECIMAL(4,2)
+  pesoEstabilidad : DECIMAL(4,2)
+}
+
+entity "MotorAnalitico" as MA {
+  * idAlgoritmo : INT <<PK>>
+  --
+  nombreAlgoritmo : VARCHAR(60)
+  version : VARCHAR(10)
+}
+
+entity "RecomendacionResult" as RR {
+  * idRecomendacion : INT <<PK>>
+  --
+  # idPerfil : INT <<FK>>
+  # idAlgoritmo : INT <<FK>>
+  # idRecomendacionOrigen : INT <<FK>>
+  fechaCalculo : DATETIME
+  puntajeGlobal : DECIMAL(5,2)
+  esSimulacion : BOOLEAN
+}
+
+entity "DetalleRecomendacion" as DR {
+  * idRecomendacion : INT <<PK, FK>>
+  * idPlan : INT <<PK, FK>>
+  --
+  posicionRanking : INT
+  puntajeIndividual : DECIMAL(5,2)
+}
+
+ZC ||--o{ PT : "asignado_a"
+PU ||--|| CP : "define"
+PU ||--o{ RR : "genera"
+MA ||--o{ RR : "ejecuta"
+RR ||--o{ DR : "incluye"
+PT ||--o{ DR : "aparece_en"
+RR ||--o{ RR : "simularEscenario\n(origen)"
+
+@enduml
