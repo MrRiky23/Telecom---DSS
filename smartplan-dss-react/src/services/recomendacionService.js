@@ -1,34 +1,10 @@
 import { supabase, isSupabaseConfigured } from '../config/supabaseClient';
 
-// Helper for local storage persistence
-function getFromLocalStorage() {
-  try {
-    const raw = localStorage.getItem('smartplan_historial');
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveToLocalStorage(newItem) {
-  try {
-    const current = getFromLocalStorage();
-    const filtered = current.filter(
-      item => item.recomendacion?.idrecomendacion !== newItem.recomendacion?.idrecomendacion
-    );
-    const updated = [newItem, ...filtered];
-    localStorage.setItem('smartplan_historial', JSON.stringify(updated));
-  } catch (e) {
-    console.error("Error al guardar en localStorage:", e);
-  }
-}
-
-// Helper to get or create a valid perfil ID in Supabase
 export async function getOrCreateUserProfileId() {
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured) throw new Error("Supabase no está configurado.");
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
+    if (!user) throw new Error("No hay usuario autenticado.");
 
     const { data: pData } = await supabase
       .from('perfilusuario')
@@ -38,7 +14,6 @@ export async function getOrCreateUserProfileId() {
 
     if (pData?.idperfil) return pData.idperfil;
 
-    // Create user profile row if absent
     const newId = crypto.randomUUID();
     const { data: newProfile, error: pErr } = await supabase
       .from('perfilusuario')
@@ -52,290 +27,166 @@ export async function getOrCreateUserProfileId() {
       .select()
       .maybeSingle();
 
-    if (!pErr && newProfile?.idperfil) return newProfile.idperfil;
-    return newId;
+    if (!pErr) return newProfile?.idperfil || newId;
+
+    // El insert falló (p. ej. otro proceso ya creó el perfil): se reintenta leer el existente.
+    const { data: existente } = await supabase
+      .from('perfilusuario')
+      .select('idperfil')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (existente?.idperfil) return existente.idperfil;
+
+    // No se devuelve un id inventado: no existe en la BD y rompería la llave foránea después.
+    throw pErr;
   } catch (err) {
     console.error("Error al obtener/crear perfil de usuario:", err);
-    return null;
+    throw err;
   }
 }
 
 export async function saveRecomendacion(perfilId, zonaId, pesos, presupuesto, top3) {
+  if (!isSupabaseConfigured) throw new Error("La base de datos no está disponible. No se puede guardar. (RNF-14)");
+
   let targetPerfilId = perfilId;
   if (!targetPerfilId || targetPerfilId === '00000000-0000-0000-0000-000000000000') {
     targetPerfilId = await getOrCreateUserProfileId();
   }
 
-  const recId = crypto.randomUUID();
-  const timestamp = new Date().toISOString();
+  // Llamada al motor SAW en PostgreSQL
+  const { data: recId, error } = await supabase.rpc('fn_ejecutar_motor_saw', {
+    p_idperfil: targetPerfilId,
+    p_idzona: Number(zonaId || 1),
+    p_presupuesto: Number(presupuesto || 300),
+    p_pesoprecio: Number(pesos.pesoPrecio || 0),
+    p_pesovelocidad: Number(pesos.pesoVelocidad || 0),
+    p_pesocobertura: Number(pesos.pesoCobertura || 0),
+    p_pesoestabilidad: Number(pesos.pesoEstabilidad || 0),
+    p_essimulacion: false,
+    p_idrecomendacionorigen: null,
+    p_tiposimulacion: null,
+    p_criteriomodificado: null
+  });
 
-  // Local representation
-  const localRec = {
-    idrecomendacion: recId,
-    idperfil: targetPerfilId,
-    idzona: Number(zonaId || 1),
-    fechacalculo: timestamp,
-    versionalgoritmo: 'SAW-1.0',
-    presupuestousado: Number(presupuesto || 300),
-    pesoprecio: Number(pesos.pesoPrecio || 0),
-    pesovelocidad: Number(pesos.pesoVelocidad || 0),
-    pesocobertura: Number(pesos.pesoCobertura || 0),
-    pesoestabilidad: Number(pesos.pesoEstabilidad || 0),
-    essimulacion: false,
-    essimulacionorigen: false,
-    tiposimulacion: null,
-    criteriomodificado: null
-  };
-
-  const detallesList = (top3 || []).map((plan, idx) => ({
-    iddetalle: crypto.randomUUID(),
-    idrecomendacion: recId,
-    idplan: plan.idPlan || idx + 1,
-    posicion: Number(plan.posicion || plan.posicionRanking || (idx + 1)),
-    puntajetotal: Number(plan.puntajeGlobal || plan.puntaje || 0),
-    puntajeprecio: Number(plan.puntajePrecio || 0),
-    puntajevelocidad: Number(plan.puntajeVelocidad || 0),
-    puntajecobertura: Number(plan.puntajeCobertura || 0),
-    puntajeestabilidad: Number(plan.puntajeEstabilidad || 0),
-    preciosnapshot: Number(plan.precioMensual || 0),
-    velocidadsnapshot: Number(plan.velocidadMbps || 0),
-    plantelecomunicacion: {
-      nombreplan: plan.nombrePlan || plan.nombreplan || `Plan #${plan.idPlan || idx + 1}`,
-      proveedor: plan.proveedor || 'Proveedor'
-    }
-  }));
-
-  // Immediate fail-safe save to localStorage
-  saveToLocalStorage({ recomendacion: localRec, detalles: detallesList });
-
-  // Sync to Supabase Cloud if available
-  if (isSupabaseConfigured) {
-    try {
-      const payload = {
-        idrecomendacion: recId,
-        idzona: Number(zonaId || 1),
-        pesoprecio: Number(pesos.pesoPrecio || 0),
-        pesovelocidad: Number(pesos.pesoVelocidad || 0),
-        pesocobertura: Number(pesos.pesoCobertura || 0),
-        pesoestabilidad: Number(pesos.pesoEstabilidad || 0),
-        presupuestousado: Number(presupuesto || 300),
-        essimulacion: false
-      };
-
-      if (targetPerfilId && targetPerfilId !== '00000000-0000-0000-0000-000000000000') {
-        payload.idperfil = targetPerfilId;
-      }
-
-      const { data: recData, error: recError } = await supabase
-        .from('recomendacionresult')
-        .insert(payload)
-        .select()
-        .single();
-
-      if (recError) {
-        console.error('Error insertando recomendacionresult en Supabase:', recError);
-      } else if (recData) {
-        const cloudDetalles = detallesList.map(d => ({
-          idrecomendacion: recData.idrecomendacion,
-          idplan: d.idplan,
-          posicion: d.posicion,
-          puntajetotal: d.puntajetotal,
-          puntajeprecio: d.puntajeprecio,
-          puntajevelocidad: d.puntajevelocidad,
-          puntajecobertura: d.puntajecobertura,
-          puntajeestabilidad: d.puntajeestabilidad,
-          preciosnapshot: d.preciosnapshot,
-          velocidadsnapshot: d.velocidadsnapshot
-        }));
-
-        const { error: detError } = await supabase.from('detallerecomendacion').insert(cloudDetalles);
-        if (detError) console.error('Error insertando detallerecomendacion en Supabase:', detError);
-        return recData.idrecomendacion;
-      }
-    } catch (error) {
-      console.error('Excepción al guardar recomendación en Supabase:', error);
-    }
+  if (error) {
+    console.error('Error al guardar recomendación vía RPC:', error);
+    throw error;
   }
 
   return recId;
 }
 
-export async function saveSimulacion(idRecomendacionOrigen, tipoSimulacion, criterioModificado, pesosSimulados, presupuestoSimulado, top3Simulado) {
-  const recId = crypto.randomUUID();
-  const timestamp = new Date().toISOString();
+export async function saveSimulacion(idRecomendacionOrigen, tipoSimulacion, criterioModificado, pesosSimulados, presupuestoSimulado, top3Simulado, zonaId) {
+  if (!isSupabaseConfigured) throw new Error("La base de datos no está disponible. No se puede guardar simulación. (RNF-14)");
 
-  const localRec = {
-    idrecomendacion: recId,
-    idrecomendacionorigen: idRecomendacionOrigen,
-    essimulacion: true,
-    tiposimulacion: tipoSimulacion,
-    criteriomodificado: criterioModificado,
-    fechacalculo: timestamp,
-    versionalgoritmo: 'SAW-1.0',
-    pesoprecio: Number(pesosSimulados.pesoPrecio || 0),
-    pesovelocidad: Number(pesosSimulados.pesoVelocidad || 0),
-    pesocobertura: Number(pesosSimulados.pesoCobertura || 0),
-    pesoestabilidad: Number(pesosSimulados.pesoEstabilidad || 0),
-    presupuestousado: Number(presupuestoSimulado || 300)
-  };
+  const targetPerfilId = await getOrCreateUserProfileId();
 
-  const detallesList = (top3Simulado || []).map((plan, idx) => ({
-    iddetalle: crypto.randomUUID(),
-    idrecomendacion: recId,
-    idplan: plan.idPlan || idx + 1,
-    posicion: Number(plan.posicion || plan.posicionRanking || (idx + 1)),
-    puntajetotal: Number(plan.puntajeGlobal || plan.puntaje || 0),
-    puntajeprecio: Number(plan.puntajePrecio || 0),
-    puntajevelocidad: Number(plan.puntajeVelocidad || 0),
-    puntajecobertura: Number(plan.puntajeCobertura || 0),
-    puntajeestabilidad: Number(plan.puntajeEstabilidad || 0),
-    preciosnapshot: Number(plan.precioMensual || 0),
-    velocidadsnapshot: Number(plan.velocidadMbps || 0),
-    plantelecomunicacion: {
-      nombreplan: plan.nombrePlan || plan.nombreplan || `Plan #${plan.idPlan || idx + 1}`,
-      proveedor: plan.proveedor || 'Proveedor'
+  // La simulación debe usar la misma zona de la recomendación. Si no se recibe,
+  // se toma la zona de la recomendación de origen guardada en la BD.
+  let zonaSimulacion = Number(zonaId);
+  if (!Number.isFinite(zonaSimulacion) || zonaSimulacion <= 0) {
+    const { data: origen, error: origenErr } = await supabase
+      .from('recomendacionresult')
+      .select('idzona')
+      .eq('idrecomendacion', idRecomendacionOrigen)
+      .maybeSingle();
+    if (origenErr || !origen?.idzona) {
+      throw new Error('No se pudo determinar la zona de la recomendación de origen.');
     }
-  }));
+    zonaSimulacion = Number(origen.idzona);
+  }
 
-  saveToLocalStorage({ recomendacion: localRec, detalles: detallesList });
+  // Llamada al motor SAW para simulación
+  const { data: recId, error } = await supabase.rpc('fn_ejecutar_motor_saw', {
+    p_idperfil: targetPerfilId,
+    p_idzona: zonaSimulacion,
+    p_presupuesto: Number(presupuestoSimulado || 300),
+    p_pesoprecio: Number(pesosSimulados.pesoPrecio || 0),
+    p_pesovelocidad: Number(pesosSimulados.pesoVelocidad || 0),
+    p_pesocobertura: Number(pesosSimulados.pesoCobertura || 0),
+    p_pesoestabilidad: Number(pesosSimulados.pesoEstabilidad || 0),
+    p_essimulacion: true,
+    p_idrecomendacionorigen: idRecomendacionOrigen,
+    p_tiposimulacion: tipoSimulacion,
+    p_criteriomodificado: criterioModificado
+  });
 
-  if (isSupabaseConfigured) {
-    try {
-      const { data: recData, error: recError } = await supabase
-        .from('recomendacionresult')
-        .insert({
-          idrecomendacion: recId,
-          idrecomendacionorigen: idRecomendacionOrigen,
-          essimulacion: true,
-          tiposimulacion: tipoSimulacion,
-          criteriomodificado: criterioModificado,
-          pesoprecio: Number(pesosSimulados.pesoPrecio || 0),
-          pesovelocidad: Number(pesosSimulados.pesoVelocidad || 0),
-          pesocobertura: Number(pesosSimulados.pesoCobertura || 0),
-          pesoestabilidad: Number(pesosSimulados.pesoEstabilidad || 0),
-          presupuestousado: Number(presupuestoSimulado || 300)
-        })
-        .select()
-        .single();
-        
-      if (recError) {
-        if (recError.code === '23505') return 'DUPLICADO';
-        console.error('Error insertando simulacion en Supabase:', recError);
-      } else if (recData) {
-        const cloudDetalles = detallesList.map(d => ({
-          idrecomendacion: recData.idrecomendacion,
-          idplan: d.idplan,
-          posicion: d.posicion,
-          puntajetotal: d.puntajetotal,
-          puntajeprecio: d.puntajeprecio,
-          puntajevelocidad: d.puntajevelocidad,
-          puntajecobertura: d.puntajecobertura,
-          puntajeestabilidad: d.puntajeestabilidad,
-          preciosnapshot: d.preciosnapshot,
-          velocidadsnapshot: d.velocidadsnapshot
-        }));
-
-        const { error: detError } = await supabase.from('detallerecomendacion').insert(cloudDetalles);
-        if (detError) console.error('Error insertando detallerecomendacion en Supabase:', detError);
-        return recData.idrecomendacion;
-      }
-    } catch (error) {
-      console.error('Excepción al guardar simulación en Supabase:', error);
-    }
+  if (error) {
+    if (error.code === '23505') return 'DUPLICADO';
+    console.error('Error al guardar simulación vía RPC:', error);
+    throw error;
   }
 
   return recId;
 }
 
 export async function getHistorialByPerfil(perfilId) {
+  if (!isSupabaseConfigured) return [];
+  
   let cloudHistorial = [];
+  try {
+    let targetId = perfilId;
+    if (!targetId || targetId === '00000000-0000-0000-0000-000000000000') {
+      targetId = await getOrCreateUserProfileId();
+    }
 
-  if (isSupabaseConfigured) {
-    try {
-      let targetId = perfilId;
-      if (!targetId || targetId === '00000000-0000-0000-0000-000000000000') {
-        targetId = await getOrCreateUserProfileId();
-      }
+    let query = supabase.from('recomendacionresult').select('*').order('fechacalculo', { ascending: false });
+    if (targetId) {
+      query = query.eq('idperfil', targetId);
+    } else {
+      query = query.limit(20);
+    }
 
-      // FIX N+1: una sola consulta con nested select en lugar de un bucle
-      let query = supabase
-        .from('recomendacionresult')
-        .select('*, detallerecomendacion(*, plantelecomunicacion(*))')
-        .order('fechacalculo', { ascending: false });
+    const { data: recomendaciones, error: recError } = await query;
+    if (!recError && recomendaciones && recomendaciones.length > 0) {
+      for (const rec of recomendaciones) {
+        const { data: detalles, error: detError } = await supabase
+          .from('detallerecomendacion')
+          .select(`*, plantelecomunicacion(*)`)
+          .eq('idrecomendacion', rec.idrecomendacion)
+          .order('posicion', { ascending: true });
 
-      if (targetId) {
-        query = query.eq('idperfil', targetId);
-      } else {
-        query = query.limit(20);
-      }
-
-      const { data: recomendaciones, error: recError } = await query;
-      if (!recError && recomendaciones && recomendaciones.length > 0) {
-        for (const rec of recomendaciones) {
-          const detalles = (rec.detallerecomendacion || []).sort(
-            (a, b) => (a.posicion || 0) - (b.posicion || 0)
-          );
-          // Extraer la relación anidada para mantener la misma estructura
-          const { detallerecomendacion: _, ...recomendacionClean } = rec;
-          cloudHistorial.push({ recomendacion: recomendacionClean, detalles });
+        if (!detError) {
+          cloudHistorial.push({ recomendacion: rec, detalles: detalles || [] });
         }
       }
-    } catch (error) {
-      console.error('Error obteniendo historial de Supabase:', error);
     }
+  } catch (error) {
+    console.error('Error obteniendo historial de Supabase:', error);
   }
 
-  // Retrieve items from local storage
-  const localHistorial = getFromLocalStorage();
-
-  // Combine Cloud and Local storage, avoiding duplicates by idrecomendacion
-  const map = new Map();
-  for (const item of cloudHistorial) {
-    if (item.recomendacion?.idrecomendacion) {
-      map.set(item.recomendacion.idrecomendacion, item);
-    }
-  }
-  for (const item of localHistorial) {
-    if (item.recomendacion?.idrecomendacion && !map.has(item.recomendacion.idrecomendacion)) {
-      map.set(item.recomendacion.idrecomendacion, item);
-    }
-  }
-
-  const result = Array.from(map.values());
-  result.sort((a, b) => new Date(b.recomendacion?.fechacalculo || 0) - new Date(a.recomendacion?.fechacalculo || 0));
-
-  return result;
+  return cloudHistorial;
 }
+
+const DEFAULT_DESDE = '2020-01-01';
+const DEFAULT_HASTA = '2030-01-01';
 
 export async function fetchKpiPrecioVelocidad(desde, hasta, zonaId = null) {
   if (!isSupabaseConfigured) return [];
-  let query = supabase.from('vw_kpi_precio_velocidad').select('*');
-  if (desde && hasta) {
-    query = query.gte('fechacalculo', desde).lte('fechacalculo', hasta);
-  }
-  const { data, error } = await query;
-  if (error) { console.error(error); return []; }
+  const { data, error } = await supabase.rpc('fn_kpi_precio_velocidad', {
+    p_desde: desde || DEFAULT_DESDE,
+    p_hasta: hasta || DEFAULT_HASTA
+  });
+  if (error) { console.error(error); throw error; }
   return data;
 }
 
 export async function fetchKpiZonas(desde, hasta) {
   if (!isSupabaseConfigured) return [];
-  let query = supabase.from('vw_kpi_zonas').select('*');
-  if (desde && hasta) {
-    query = query.gte('fechacalculo', desde).lte('fechacalculo', hasta);
-  }
-  const { data, error } = await query;
-  if (error) { console.error(error); return []; }
+  const { data, error } = await supabase.rpc('fn_kpi_zonas', {
+    p_desde: desde || DEFAULT_DESDE,
+    p_hasta: hasta || DEFAULT_HASTA
+  });
+  if (error) { console.error(error); throw error; }
   return data;
 }
 
 export async function fetchKpiSimulaciones(desde, hasta) {
   if (!isSupabaseConfigured) return [];
-  let query = supabase.from('vw_kpi_simulaciones').select('*');
-  if (desde && hasta) {
-    query = query.gte('fechacalculo', desde).lte('fechacalculo', hasta);
-  }
-  const { data, error } = await query;
-  if (error) { console.error(error); return []; }
+  const { data, error } = await supabase.rpc('fn_kpi_simulaciones', {
+    p_desde: desde || DEFAULT_DESDE,
+    p_hasta: hasta || DEFAULT_HASTA
+  });
+  if (error) { console.error(error); throw error; }
   return data;
 }

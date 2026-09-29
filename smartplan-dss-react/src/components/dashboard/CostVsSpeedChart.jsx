@@ -10,7 +10,7 @@ export default function CostVsSpeedChart({ planes = [] }) {
         <div className="card-header">
           <h3 className="card-title">
             <i className="fa-solid fa-chart-scatter" style={{ color: 'var(--primary-500)', marginRight: '8px' }}></i>
-            Relación Costo vs. Velocidad
+            Costo frente a velocidad
           </h3>
         </div>
         <div className="card-body">
@@ -53,12 +53,12 @@ export default function CostVsSpeedChart({ planes = [] }) {
         <div className="card-header">
           <h3 className="card-title">
             <i className="fa-solid fa-lightbulb" style={{ color: 'var(--warning)', marginRight: '8px' }}></i>
-            Diagnóstico de Decisión DSS
+            Por qué esta recomendación
           </h3>
         </div>
         <div className="card-body">
           <p style={{ fontSize: '0.8rem', color: 'var(--neutral-600)', lineHeight: '1.7' }}>
-            <strong style={{ color: 'var(--primary-500)' }}>{displayPlanes[0]?.nombrePlan || 'Plan Líder'}</strong> domina en los vectores tácticos con el mejor ratio de Puntaje Global SAW.
+            <strong style={{ color: 'var(--primary-500)' }}>{displayPlanes[0]?.nombrePlan || 'Plan líder'}</strong> tiene el mejor puntaje global entre las alternativas evaluadas.
             La combinación de tarifa mensual accesible, banda ancha simétrica y estabilidad garantizada lo posiciona como la opción recomendada.
           </p>
           <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

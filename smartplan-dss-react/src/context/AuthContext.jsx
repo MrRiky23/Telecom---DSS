@@ -10,15 +10,11 @@ export function AuthProvider({ children }) {
   const [criterios, setCriterios] = useState(null);
   const [rol, setRol] = useState('usuario');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
-      // Demo mode
-      setSession({ access_token: 'demo' });
-      setUser({ id: 'demo-user-id', email: 'demo@smartplan.com' });
-      setRol('admin');
-      setPerfil({ idperfil: 'demo-perfil', ubicacion: 'Demo City', presupuestomax: 1000, tipousos: ['Gaming'] });
-      setCriterios({ criteriosseleccionados: ['Precio', 'Velocidad'], pesoprecio: 0.5, pesovelocidad: 0.5, pesocobertura: 0, pesoestabilidad: 0 });
+      setError("La aplicación requiere conexión a Supabase (Modo Demo deshabilitado).");
       setLoading(false);
       return;
     }
@@ -43,7 +39,6 @@ export function AuthProvider({ children }) {
       profileData = pData;
 
       if (!profileData) {
-        // create default satisfying CHECK (presupuestomax BETWEEN 1 AND 10000)
         const { data: newProfile, error: pErr } = await supabase
           .from('perfilusuario')
           .insert({ 
@@ -72,7 +67,6 @@ export function AuthProvider({ children }) {
         if (cData) {
           setCriterios(cData);
         } else {
-          // create default satisfying CHECK (ROUND(suma, 2) = 1.00)
           const { data: newCriterios, error: cErr } = await supabase
             .from('criterioponderacion')
             .insert({ 
@@ -92,13 +86,18 @@ export function AuthProvider({ children }) {
     };
 
     const initializeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await loadData(session.user.id);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          await loadData(session.user.id);
+        }
+      } catch (err) {
+        console.error("Auth init error", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
         setSession(newSession);
@@ -121,13 +120,13 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signIn = async (email, password) => {
-    if (!isSupabaseConfigured) return { error: null };
+    if (!isSupabaseConfigured) throw new Error("Supabase no configurado");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
   };
 
   const signUp = async (email, password) => {
-    if (!isSupabaseConfigured) return { error: null };
+    if (!isSupabaseConfigured) throw new Error("Supabase no configurado");
     const { error } = await supabase.auth.signUp({ 
       email, 
       password,
@@ -137,47 +136,45 @@ export function AuthProvider({ children }) {
   };
 
   const signOut = async () => {
-    if (!isSupabaseConfigured) {
-      setSession(null);
-      setUser(null);
-      return;
-    }
+    if (!isSupabaseConfigured) return;
     await supabase.auth.signOut();
   };
 
   const resetPassword = async (email) => {
-    if (!isSupabaseConfigured) return { error: null };
+    if (!isSupabaseConfigured) throw new Error("Supabase no configurado");
     const { error } = await supabase.auth.resetPasswordForEmail(email);
     return { error };
   };
 
   const updatePerfil = async (data) => {
-    if (!isSupabaseConfigured || !user) {
-      setPerfil(prev => ({ ...prev, ...data }));
-      return;
-    }
+    if (!isSupabaseConfigured || !user) throw new Error("No autenticado o DB no configurada");
     const updateData = { ...perfil, ...data, user_id: user.id };
     const { data: updated, error } = await supabase
       .from('perfilusuario')
       .upsert(updateData)
       .select()
       .single();
-    if (!error && updated) setPerfil(updated);
+    if (error) throw error;
+    if (!updated) throw new Error('La base de datos no devolvió el perfil actualizado');
+    setPerfil(updated);
   };
 
   const updateCriterios = async (data) => {
-    if (!isSupabaseConfigured || !perfil) {
-      setCriterios(prev => ({ ...prev, ...data }));
-      return;
-    }
+    if (!isSupabaseConfigured || !perfil) throw new Error("No autenticado o DB no configurada");
     const updateData = { ...criterios, ...data, idperfil: perfil.idperfil };
     const { data: updated, error } = await supabase
       .from('criterioponderacion')
       .upsert(updateData)
       .select()
       .single();
-    if (!error && updated) setCriterios(updated);
+    if (error) throw error;
+    if (!updated) throw new Error('La base de datos no devolvió los criterios actualizados');
+    setCriterios(updated);
   };
+
+  if (error) {
+    return <div className="p-8 text-red-500 font-bold bg-black min-h-screen">{error}</div>;
+  }
 
   return (
     <AuthContext.Provider value={{

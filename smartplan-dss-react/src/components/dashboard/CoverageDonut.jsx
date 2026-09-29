@@ -17,7 +17,7 @@ export default function CoverageDonut({ zona }) {
       <div className="card-header">
         <h3 className="card-title">
           <i className="fa-solid fa-signal" style={{ color: 'var(--primary-500)', marginRight: '8px' }}></i>
-          Cobertura en tu Zona
+          Cobertura en tu zona
         </h3>
       </div>
       <div className="card-body">

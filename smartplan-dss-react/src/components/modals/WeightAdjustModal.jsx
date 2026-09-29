@@ -51,7 +51,7 @@ export default function WeightAdjustModal({ criteriosSeleccionados, onSave, onCl
         <div className="modal-header">
           <h3 className="modal-title">
             <i className="fa-solid fa-sliders" style={{ color: 'var(--primary-500)', marginRight: '8px' }}></i>
-            Selección de Criterios y Pesos ROC (HU-C05)
+            Criterios y pesos
           </h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>
             <i className="fa-solid fa-xmark"></i>

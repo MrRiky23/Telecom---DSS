@@ -1,6 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
+import { isSupabaseConfigured } from '../config/supabaseClient'
+import { getNivelCobertura } from '../config/supabaseServices'
 
-export default function CatalogoView({ planes, onAddPlan, onUpdatePlan, onDeletePlan, onToast }) {
+export default function CatalogoView({ planes, zonas = [], selectedZonaId, onAddPlan, onUpdatePlan, onDeletePlan, onImportPlans, onToast }) {
+  const zonaInicial = selectedZonaId ?? zonas[0]?.idZona ?? 1;
   const [providerFilter, setProviderFilter] = useState('todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingPlan, setEditingPlan] = useState(null); // null = nuevo o seleccionando
@@ -12,9 +15,55 @@ export default function CatalogoView({ planes, onAddPlan, onUpdatePlan, onDelete
     limiteDatosGB: 0,
     indiceEstabilidad: 85,
     nivelCobertura: 'Alta',
+    idZona: zonaInicial,
     tecnologia: 'Fibra Óptica FTTH',
     descripcion: ''
   });
+
+  const fileInputRef = useRef(null);
+
+  // Importación de planes desde CSV o JSON (solo administrador: la vista recibe onImportPlans únicamente en ese caso).
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file || !onImportPlans) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const content = evt.target.result;
+        if (file.name.toLowerCase().endsWith('.json')) {
+          const json = JSON.parse(content);
+          onImportPlans(Array.isArray(json) ? json : (json.planes || [json]));
+        } else {
+          const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+          if (lines.length <= 1) {
+            onToast && onToast('El archivo no tiene filas para importar.', 'warning');
+            return;
+          }
+          const importados = [];
+          for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            if (values.length >= 3) {
+              importados.push({
+                proveedor: values[0] || 'Proveedor',
+                nombrePlan: values[1] || 'Plan importado',
+                precioMensual: parseFloat(values[2]) || 150,
+                velocidadMbps: parseInt(values[3]) || 50,
+                indiceEstabilidad: parseInt(values[4]) || 90,
+                tecnologia: values[5] || 'Fibra Óptica FTTH'
+              });
+            }
+          }
+          onImportPlans(importados);
+        }
+      } catch (err) {
+        console.error('Error al importar archivo:', err);
+        onToast && onToast('No se pudo leer el archivo. Revisa que sea un CSV o JSON válido.', 'error');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = null;
+  };
 
   const planesFiltrados = planes.filter(p => {
     const matchesProvider = providerFilter === 'todos' || p.proveedor.toLowerCase() === providerFilter;
@@ -30,6 +79,12 @@ export default function CatalogoView({ planes, onAddPlan, onUpdatePlan, onDelete
   const precioPromedio = Math.round(planes.reduce((acc, curr) => acc + Number(curr.precioMensual), 0) / (planes.length || 1));
   const velocidadPromedio = Math.round(planes.reduce((acc, curr) => acc + Number(curr.velocidadMbps), 0) / (planes.length || 1));
 
+  // Solo cuentan los planes con dato real de cobertura; sin datos no se inventa un porcentaje.
+  const planesConCobertura = planes.filter(p => p.nivelCobertura);
+  const coberturaAlta = planesConCobertura.length
+    ? Math.round((planesConCobertura.filter(p => p.nivelCobertura.toLowerCase() === 'alta').length / planesConCobertura.length) * 100)
+    : null;
+
   const handleEditClick = (plan) => {
     setEditingPlan(plan);
     setFormData({
@@ -40,7 +95,8 @@ export default function CatalogoView({ planes, onAddPlan, onUpdatePlan, onDelete
       velocidadMbps: plan.velocidadMbps,
       limiteDatosGB: plan.limiteDatosGB,
       indiceEstabilidad: plan.indiceEstabilidad ?? 90,
-      nivelCobertura: plan.nivelCobertura,
+      nivelCobertura: plan.nivelCobertura || 'Alta',
+      idZona: plan.idZona ?? zonaInicial,
       tecnologia: plan.tecnologia || 'FTTH',
       descripcion: plan.descripcion || ''
     });
@@ -56,47 +112,89 @@ export default function CatalogoView({ planes, onAddPlan, onUpdatePlan, onDelete
       limiteDatosGB: 0,
       indiceEstabilidad: 85,
       nivelCobertura: 'Alta',
+      idZona: zonaInicial,
       tecnologia: 'Fibra Óptica FTTH',
       descripcion: ''
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.nombrePlan) {
-      onToast('Ingrese el nombre del plan');
+    const nombre = String(formData.nombrePlan ?? '').trim();
+    const precio = formData.precioMensual;
+    const velocidad = formData.velocidadMbps;
+    const estab = formData.indiceEstabilidad;
+
+    if (!nombre) {
+      onToast('Ingrese el nombre del plan', 'error');
       return;
     }
-    if (formData.indiceEstabilidad === '' || formData.indiceEstabilidad === null || formData.indiceEstabilidad === undefined
-      || Number.isNaN(Number(formData.indiceEstabilidad)) || formData.indiceEstabilidad < 0 || formData.indiceEstabilidad > 100) {
-      onToast('El Índice de Estabilidad es obligatorio y debe estar entre 0 y 100');
+    if (nombre.length > 80) {
+      onToast('El nombre del plan no puede superar los 80 caracteres', 'error');
+      return;
+    }
+    if (precio === '' || !Number.isFinite(Number(precio)) || Number(precio) < 0) {
+      onToast('El precio mensual es obligatorio y no puede ser negativo', 'error');
+      return;
+    }
+    if (Number(precio) > 99999999) {
+      onToast('El precio mensual ingresado es demasiado alto', 'error');
+      return;
+    }
+    if (velocidad === '' || !Number.isInteger(Number(velocidad)) || Number(velocidad) <= 0) {
+      onToast('La velocidad debe ser un número entero mayor a 0 Mbps', 'error');
+      return;
+    }
+    if (estab === '' || estab === null || estab === undefined
+      || Number.isNaN(Number(estab)) || Number(estab) < 0 || Number(estab) > 100) {
+      onToast('El Índice de Estabilidad es obligatorio y debe estar entre 0 y 100', 'error');
+      return;
+    }
+    const idZona = Number(formData.idZona);
+    if (!Number.isInteger(idZona) || idZona <= 0) {
+      onToast('Seleccione la zona del plan', 'error');
       return;
     }
     // HU-C01.3: mismo proveedor + nombrePlan (sin distinguir mayúsculas) ya existente.
     const duplicado = planes.some((p) =>
       p.idPlan !== formData.idPlan &&
       p.proveedor.toLowerCase() === formData.proveedor.toLowerCase() &&
-      p.nombrePlan.toLowerCase() === formData.nombrePlan.toLowerCase()
+      p.nombrePlan.trim().toLowerCase() === nombre.toLowerCase()
     );
     if (duplicado) {
-      onToast('Ya existe un plan con ese nombre para este proveedor.');
+      onToast('Ya existe un plan con ese nombre para este proveedor.', 'error');
       return;
     }
 
+    const datos = {
+      ...formData,
+      nombrePlan: nombre,
+      precioMensual: Number(precio),
+      velocidadMbps: Number(velocidad),
+      indiceEstabilidad: Number(estab),
+      idZona
+    };
+
+    // Solo se muestra "éxito" si el handler confirma que se guardó de verdad.
     if (editingPlan) {
-      onUpdatePlan(formData);
-      onToast(`Plan "${formData.nombrePlan}" actualizado con éxito`, 'success');
+      const ok = await onUpdatePlan(datos);
+      if (ok) onToast(`Plan "${nombre}" actualizado con éxito`, 'success');
+      else return;
     } else {
-      const newPlan = {
-        ...formData,
-        idPlan: Date.now(),
-        activo: true,
-        idZona: 1
-      };
-      onAddPlan(newPlan);
-      onToast(`Plan "${formData.nombrePlan}" creado exitosamente`, 'success');
+      const ok = await onAddPlan({ ...datos, idPlan: Date.now(), activo: true });
+      if (ok) onToast(`Plan "${nombre}" creado exitosamente`, 'success');
+      else return;
     }
     handleNewClick();
+  };
+
+  const handleDelete = async (plan) => {
+    if (!window.confirm(`¿Dar de baja el plan "${plan.nombrePlan}" de ${plan.proveedor}? Dejará de aparecer en el catálogo y en las recomendaciones, pero el historial se conserva.`)) return;
+    const ok = await onDeletePlan(plan.idPlan);
+    if (ok) {
+      onToast('Plan dado de baja (el historial se conserva)', 'success');
+      if (editingPlan && editingPlan.idPlan === plan.idPlan) handleNewClick();
+    }
   };
 
   return (
@@ -107,39 +205,59 @@ export default function CatalogoView({ planes, onAddPlan, onUpdatePlan, onDelete
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <span className="reco-tag recomendado">
-                <i className="fa-solid fa-shield-check"></i> Módulo Operativo (CRUD OLTP)
+                <i className="fa-solid fa-shield-check"></i> Administración
               </span>
             </div>
             <h1 className="page-title">
-              Gestión de Catálogo de <span className="highlight">Planes</span>
+              Catálogo de <span className="highlight">planes</span>
             </h1>
             <p className="page-subtitle">
-              Administrador (Perfil Operativo) — Carga, audita y mantiene la oferta activa en la tabla <code>PlanTelecomunicacion</code>.
+              Agrega, edita y da de baja los planes que se usan para calcular las recomendaciones.
             </p>
           </div>
-          <button className="btn btn-primary" onClick={handleNewClick}>
-            <i className="fa-solid fa-plus"></i> Nuevo Plan
-          </button>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {onImportPlans && (
+              <>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  accept=".csv,.json"
+                  onChange={handleFileSelect}
+                />
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Columnas del CSV: proveedor, nombre del plan, precio, velocidad, estabilidad, tecnología"
+                >
+                  <i className="fa-solid fa-file-import"></i> Importar planes
+                </button>
+              </>
+            )}
+            <button className="btn btn-primary" onClick={handleNewClick}>
+              <i className="fa-solid fa-plus"></i> Nuevo plan
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Metrics Strip */}
       <div className="metrics-strip">
         <div className="metric-card accent">
-          <div className="metric-label">Total Planes</div>
+          <div className="metric-label">Total de planes</div>
           <div className="metric-value">{planes.length} <span className="unit">Disponibles</span></div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">Precio Promedio</div>
+          <div className="metric-label">Precio promedio</div>
           <div className="metric-value">Bs {precioPromedio} <span className="unit">/mes</span></div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">Velocidad Promedio</div>
+          <div className="metric-label">Velocidad promedio</div>
           <div className="metric-value">{velocidadPromedio} <span className="unit">Mbps</span></div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Cobertura</div>
-          <div className="metric-value">78% <span className="unit">Catálogo</span></div>
+          <div className="metric-value">{coberturaAlta === null ? '—' : `${coberturaAlta}%`} <span className="unit">Alta cobertura</span></div>
         </div>
       </div>
 
@@ -150,7 +268,7 @@ export default function CatalogoView({ planes, onAddPlan, onUpdatePlan, onDelete
           <div className="card-header">
             <h3 className="card-title">
               <i className="fa-solid fa-table-list" style={{ color: 'var(--primary-500)', marginRight: '8px' }}></i>
-              Planes Configurados
+              Planes configurados
             </h3>
             <input
               type="text"
@@ -233,9 +351,9 @@ export default function CatalogoView({ planes, onAddPlan, onUpdatePlan, onDelete
                       </td>
                       <td>
                         <button
-                          onClick={(e) => { e.stopPropagation(); onDeletePlan(plan.idPlan); onToast('Plan eliminado'); }}
+                          onClick={(e) => { e.stopPropagation(); handleDelete(plan); }}
                           style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}
-                          title="Eliminar Plan"
+                          title="Dar de baja plan"
                         >
                           <i className="fa-solid fa-trash-can"></i>
                         </button>
@@ -274,6 +392,7 @@ export default function CatalogoView({ planes, onAddPlan, onUpdatePlan, onDelete
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px' }}>Nombre del Plan *</label>
                 <input
                   type="text"
+                  maxLength={80}
                   value={formData.nombrePlan}
                   onChange={(e) => setFormData({ ...formData, nombrePlan: e.target.value })}
                   placeholder="Ej: Fibra Hogar 100"
@@ -286,8 +405,11 @@ export default function CatalogoView({ planes, onAddPlan, onUpdatePlan, onDelete
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px' }}>Precio Mensual (Bs) *</label>
                   <input
                     type="number"
+                    min="0"
+                    step="0.01"
+                    required
                     value={formData.precioMensual}
-                    onChange={(e) => setFormData({ ...formData, precioMensual: Number(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, precioMensual: e.target.value === '' ? '' : Number(e.target.value) })}
                     style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--neutral-300)' }}
                   />
                 </div>
@@ -296,8 +418,11 @@ export default function CatalogoView({ planes, onAddPlan, onUpdatePlan, onDelete
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px' }}>Velocidad (Mbps) *</label>
                   <input
                     type="number"
+                    min="1"
+                    step="1"
+                    required
                     value={formData.velocidadMbps}
-                    onChange={(e) => setFormData({ ...formData, velocidadMbps: Number(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, velocidadMbps: e.target.value === '' ? '' : Number(e.target.value) })}
                     style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--neutral-300)' }}
                   />
                 </div>
@@ -318,16 +443,42 @@ export default function CatalogoView({ planes, onAddPlan, onUpdatePlan, onDelete
                 />
               </div>
 
+              {isSupabaseConfigured ? (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px' }}>Nivel de Cobertura</label>
+                  <div style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--neutral-200)', background: 'var(--neutral-50)', color: 'var(--neutral-700)', fontSize: '0.85rem', boxSizing: 'border-box' }}>
+                    {getNivelCobertura(formData.idZona, formData.proveedor) ?? 'Sin dato'}
+                  </div>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
+                    Se toma de la cobertura registrada para esta zona y proveedor.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px' }}>Nivel de Cobertura</label>
+                  <select
+                    value={formData.nivelCobertura}
+                    onChange={(e) => setFormData({ ...formData, nivelCobertura: e.target.value })}
+                    style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--neutral-300)' }}
+                  >
+                    <option value="Alta">Alta Cobertura</option>
+                    <option value="Media">Media Cobertura</option>
+                    <option value="Baja">Baja Cobertura</option>
+                  </select>
+                </div>
+              )}
+
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px' }}>Nivel de Cobertura</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px' }}>Zona *</label>
                 <select
-                  value={formData.nivelCobertura}
-                  onChange={(e) => setFormData({ ...formData, nivelCobertura: e.target.value })}
+                  value={formData.idZona}
+                  onChange={(e) => setFormData({ ...formData, idZona: Number(e.target.value) })}
+                  required
                   style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--neutral-300)' }}
                 >
-                  <option value="Alta">Alta Cobertura</option>
-                  <option value="Media">Media Cobertura</option>
-                  <option value="Baja">Baja Cobertura</option>
+                  {zonas.map(z => (
+                    <option key={z.idZona} value={z.idZona}>{z.nombreSector}</option>
+                  ))}
                 </select>
               </div>
 

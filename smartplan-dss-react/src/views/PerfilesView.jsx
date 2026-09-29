@@ -58,32 +58,9 @@ export default function PerfilesView({ usuario, onUpdatePerfil, onToast }) {
       if (onToast) onToast('¡Perfil guardado correctamente en la base de datos!', 'success');
     } catch (err) {
       console.error("Error al guardar perfil:", err);
-      if (onToast) onToast('Error al actualizar el perfil', 'error');
+      if (onToast) onToast('Error al actualizar el perfil: ' + (err?.message || 'intente nuevamente'), 'error');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!window.confirm('¿Estás seguro de que deseas eliminar tu cuenta? Tu historial de recomendaciones se conservará de forma anónima (Regla D-9).')) {
-      return;
-    }
-    try {
-      if (isSupabaseConfigured) {
-        // Pseudonimización (D-9): vaciamos los datos del perfil antes de cerrar sesión
-        // En una app completa, esto llamaría a una RPC para inhabilitar el usuario en auth.users
-        await updatePerfil({ ubicacion: '[Eliminado]', presupuestomax: 1, tipousos: [] });
-      }
-      if (onToast) onToast('Cuenta pseudonimizada correctamente. El historial se ha conservado (D-9).', 'info');
-      
-      // Cerrar sesión usando signOut del contexto de auth ya importado
-      if (isSupabaseConfigured) {
-        // En lugar de import dinámico, usamos reload para desloguear localmente si no tenemos acceso a signOut acá
-        // Aunque podemos desloguear usando el window
-        window.location.reload(); 
-      }
-    } catch (err) {
-      console.error(err);
     }
   };
 
@@ -108,10 +85,10 @@ export default function PerfilesView({ usuario, onUpdatePerfil, onToast }) {
           </div>
           <div>
             <h1 className="page-title" style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, color: 'var(--neutral-900)' }}>
-              Mi Perfil de Usuario
+              Mi perfil
             </h1>
             <p className="page-subtitle" style={{ margin: '4px 0 0', color: 'var(--neutral-500)', fontSize: '0.88rem' }}>
-              Personaliza tus límites presupuestarios y necesidades de conectividad para el motor DSS
+              Personaliza tus límites presupuestarios y necesidades de conectividad para recibir mejores recomendaciones
             </p>
           </div>
         </div>
@@ -338,30 +315,7 @@ export default function PerfilesView({ usuario, onUpdatePerfil, onToast }) {
           </div>
 
           {/* Submit Action */}
-          <div style={{ borderTop: '1px solid var(--neutral-200)', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={handleDeleteAccount}
-              style={{
-                padding: '10px 16px',
-                borderRadius: 'var(--radius-md, 10px)',
-                background: 'transparent',
-                color: 'var(--danger, #EF4444)',
-                border: '1px solid var(--danger, #EF4444)',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.15s ease'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-            >
-              <i className="fa-solid fa-user-xmark"></i> Eliminar Cuenta (D-9)
-            </button>
-
+          <div style={{ borderTop: '1px solid var(--neutral-200)', paddingTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               type="submit"
               disabled={saving}

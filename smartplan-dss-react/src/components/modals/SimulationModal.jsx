@@ -8,6 +8,21 @@ const NOMBRE_CRITERIO = {
   estabilidad: 'Estabilidad'
 };
 
+const CLAVE_PESO = {
+  precio: 'pesoPrecio',
+  velocidad: 'pesoVelocidad',
+  cobertura: 'pesoCobertura',
+  estabilidad: 'pesoEstabilidad'
+};
+
+// Posición inicial del slider = peso actual del criterio ajustado al paso de 0,05.
+// Dejarlo ahí significa "sin cambios".
+const pesoInicialDe = (pesos, criterio) => {
+  const actual = Number(pesos?.[CLAVE_PESO[criterio]] ?? 0.5);
+  const ajustado = Math.round(actual * 20) / 20;
+  return Math.min(0.95, Math.max(0.05, ajustado));
+};
+
 const ICONO_CRITERIO = {
   precio: 'fa-tag',
   velocidad: 'fa-bolt',
@@ -21,6 +36,7 @@ export default function SimulationModal({
   pesos = { pesoPrecio: 0.61, pesoVelocidad: 0.28, pesoCobertura: 0.11, pesoEstabilidad: 0.00 },
   onRunSimulation,
   onConfirmSimulation,
+  validarSimulacion,
   onClose
 }) {
   const [tipoSimulacion, setTipoSimulacion] = useState('PESO');
@@ -31,7 +47,7 @@ export default function SimulationModal({
     : ['precio', 'velocidad', 'cobertura'];
 
   const [criterioModificado, setCriterioModificado] = useState(listaCriterios[0]);
-  const [nuevoPeso, setNuevoPeso] = useState(0.50);
+  const [nuevoPeso, setNuevoPeso] = useState(() => pesoInicialDe(pesos, listaCriterios[0]));
   const [nuevoPresupuesto, setNuevoPresupuesto] = useState(currentPresupuesto || 300);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -47,46 +63,54 @@ export default function SimulationModal({
     }
   }, [pesos, tipoSimulacion, criterioModificado, nuevoPeso]);
 
+  const pesoBase = pesoInicialDe(pesos, criterioModificado);
+  const pesoActualPct = Math.round(Number(pesos?.[CLAVE_PESO[criterioModificado]] ?? 0) * 100);
+  const sinCambioPeso = Math.abs(Number(nuevoPeso) - pesoBase) < 1e-9;
+
+  const armarParametros = () => {
+    if (tipoSimulacion === 'PESO') {
+      if (!criterioModificado) return { error: 'Elige el criterio que quieres modificar.' };
+      return { params: { tipoSimulacion: 'PESO', criterioModificado, nuevoPeso: Number(nuevoPeso) } };
+    }
+    const valor = Number(nuevoPresupuesto);
+    if (isNaN(valor) || valor < 1 || valor > 10000) {
+      return { error: 'El presupuesto simulado debe estar entre 1 y 10,000 Bs' };
+    }
+    return { params: { tipoSimulacion: 'PRESUPUESTO', nuevoPresupuesto: valor } };
+  };
+
+  // Devuelve un mensaje de error (o null si la simulación es válida y distinta del original).
+  const revisar = () => {
+    const { params, error } = armarParametros();
+    if (error) return { error };
+    if (tipoSimulacion === 'PESO' && sinCambioPeso) {
+      return { error: 'El peso sigue igual que el actual. Mueve el control para ver qué cambia.' };
+    }
+    if (tipoSimulacion === 'PRESUPUESTO' && Number(params.nuevoPresupuesto) === Number(currentPresupuesto)) {
+      return { error: 'El presupuesto sigue igual que el actual (Bs ' + currentPresupuesto + '). Cámbialo para compararlo.' };
+    }
+    const errorApp = validarSimulacion ? validarSimulacion(params) : null;
+    if (errorApp) return { error: errorApp };
+    return { params };
+  };
+
   const handleSimulate = () => {
     setErrorMsg('');
-    if (tipoSimulacion === 'PESO') {
-      if (!criterioModificado) return;
-      onRunSimulation({ tipoSimulacion: 'PESO', criterioModificado, nuevoPeso: Number(nuevoPeso) });
-    } else {
-      const valor = Number(nuevoPresupuesto);
-      if (isNaN(valor) || valor < 1 || valor > 10000) {
-        setErrorMsg('El presupuesto simulado debe estar entre 1 y 10,000 Bs');
-        return;
-      }
-      onRunSimulation({ tipoSimulacion: 'PRESUPUESTO', nuevoPresupuesto: valor });
-    }
+    const { params, error } = revisar();
+    if (error) { setErrorMsg(error); return; }
+    onRunSimulation(params);
     onClose();
   };
 
   const handleConfirmAndSave = async () => {
-    setIsSaving(true);
     setErrorMsg('');
+    const { params, error } = revisar();
+    if (error) { setErrorMsg(error); return; }
+    setIsSaving(true);
     try {
-      let params = {};
-      if (tipoSimulacion === 'PESO') {
-        if (!criterioModificado) {
-          setIsSaving(false);
-          return;
-        }
-        params = { tipoSimulacion: 'PESO', criterioModificado, nuevoPeso: Number(nuevoPeso) };
-      } else {
-        const valor = Number(nuevoPresupuesto);
-        if (isNaN(valor) || valor < 1 || valor > 10000) {
-          setErrorMsg('El presupuesto simulado debe estar entre 1 y 10,000 Bs');
-          setIsSaving(false);
-          return;
-        }
-        params = { tipoSimulacion: 'PRESUPUESTO', nuevoPresupuesto: valor };
-      }
-
       const result = await onConfirmSimulation(params);
       if (result === 'DUPLICADO') {
-        setErrorMsg('Ya existe una simulación confirmada para esta recomendación original (Regla D-3)');
+        setErrorMsg('Ya guardaste una simulación para esta recomendación. Solo se permite una por recomendación.');
       } else if (result) {
         onClose();
       }
@@ -149,10 +173,10 @@ export default function SimulationModal({
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'white' }}>
-                Simulador de Sensibilidad DSS
+                Simulador de escenarios
               </h3>
               <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#A0A0B8' }}>
-                Regla D-4: Modifica exactamente 1 variable (Peso o Presupuesto)
+                Cambia una sola cosa a la vez: un peso o el presupuesto
               </p>
             </div>
           </div>
@@ -223,7 +247,7 @@ export default function SimulationModal({
                 gap: '8px'
               }}
             >
-              <i className="fa-solid fa-sliders"></i> Ajuste de Peso
+              <i className="fa-solid fa-sliders"></i> Ajustar un peso
             </button>
 
             <button
@@ -246,7 +270,7 @@ export default function SimulationModal({
                 gap: '8px'
               }}
             >
-              <i className="fa-solid fa-wallet"></i> Ajuste Presupuesto
+              <i className="fa-solid fa-wallet"></i> Ajustar presupuesto
             </button>
           </div>
 
@@ -257,7 +281,7 @@ export default function SimulationModal({
               {/* Selector Criterio */}
               <div>
                 <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: 'var(--neutral-800)', marginBottom: '8px' }}>
-                  Selecciona el Criterio a Modificar:
+                  Criterio a modificar:
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px' }}>
                   {listaCriterios.map(c => {
@@ -265,7 +289,7 @@ export default function SimulationModal({
                     return (
                       <div
                         key={c}
-                        onClick={() => setCriterioModificado(c)}
+                        onClick={() => { setCriterioModificado(c); setNuevoPeso(pesoInicialDe(pesos, c)); setErrorMsg(''); }}
                         style={{
                           padding: '10px',
                           borderRadius: '8px',
@@ -295,7 +319,9 @@ export default function SimulationModal({
                     Nuevo Peso para "{NOMBRE_CRITERIO[criterioModificado] || criterioModificado}":
                   </label>
                   <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary-600)' }}>
-                    {Math.round(nuevoPeso * 100)}% ({nuevoPeso})
+                    {sinCambioPeso
+                      ? `${pesoActualPct}% (actual, sin cambios)`
+                      : `${Math.round(nuevoPeso * 100)}% (actual: ${pesoActualPct}%)`}
                   </span>
                 </div>
 
@@ -305,7 +331,7 @@ export default function SimulationModal({
                   max="0.95"
                   step="0.05"
                   value={nuevoPeso}
-                  onChange={(e) => setNuevoPeso(parseFloat(e.target.value))}
+                  onChange={(e) => { setNuevoPeso(parseFloat(e.target.value)); if (errorMsg) setErrorMsg(''); }}
                   style={{
                     width: '100%',
                     accentColor: 'var(--primary-500)',
@@ -322,15 +348,19 @@ export default function SimulationModal({
               {/* Live Preview Bar Matrix */}
               <div style={{ background: 'var(--neutral-50)', padding: '14px', borderRadius: 'var(--radius-md, 10px)', border: '1px solid var(--neutral-200)' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--neutral-600)', display: 'block', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Previsualización del Reescalado de Pesos (§3.3.3):
+                  Pesos: antes → después (los demás criterios se reajustan solos)
                 </span>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {Object.entries(pesosPrevisualizados).map(([k, val]) => {
                     const cName = k.replace('peso', '').toLowerCase();
-                    if (val <= 0) return null;
+                    const antes = Number(pesos?.[k] ?? 0);
+                    if (val <= 0 && antes <= 0) return null;
+                    const cambio = Math.round(val * 100) !== Math.round(antes * 100);
                     return (
-                      <span key={k} style={{ background: 'white', border: '1px solid var(--neutral-300)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600 }}>
-                        {NOMBRE_CRITERIO[cName] || cName}: <strong style={{ color: 'var(--primary-600)' }}>{Math.round(val * 100)}%</strong>
+                      <span key={k} style={{ background: cambio ? 'var(--primary-50)' : 'white', border: cambio ? '1px solid var(--primary-300)' : '1px solid var(--neutral-300)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600 }}>
+                        {NOMBRE_CRITERIO[cName] || cName}:{' '}
+                        {cambio && <span style={{ color: 'var(--neutral-500)', fontWeight: 500 }}>{Math.round(antes * 100)}% → </span>}
+                        <strong style={{ color: 'var(--primary-600)' }}>{Math.round(val * 100)}%</strong>
                       </span>
                     );
                   })}
@@ -342,7 +372,7 @@ export default function SimulationModal({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', color: 'var(--neutral-800)', marginBottom: '8px' }}>
-                  Nuevo Presupuesto Máximo Mensual (Bs):
+                  Nuevo presupuesto máximo mensual (Bs) — actual: Bs {currentPresupuesto}
                 </label>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontWeight: 600, color: 'var(--neutral-500)' }}>Bs</span>
@@ -472,7 +502,7 @@ export default function SimulationModal({
                 </>
               ) : (
                 <>
-                  <i className="fa-solid fa-floppy-disk"></i> Confirmar y Guardar (D-3)
+                  <i className="fa-solid fa-floppy-disk"></i> Confirmar y guardar simulación
                 </>
               )}
             </button>

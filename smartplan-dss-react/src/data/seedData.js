@@ -359,12 +359,12 @@ export const initialPerfil = {
   usoEstimadoGB: 800
 };
 
-// Pesos iniciales del criterio SAW (Cumpliendo PRD - 3 Criterios ROC)
+// Pesos iniciales del criterio SAW
 export const initialPesos = {
-  pesoPrecio: 0.61,
-  pesoVelocidad: 0.28,
-  pesoCobertura: 0.11,
-  pesoEstabilidad: 0.00
+  pesoPrecio: 0.40,
+  pesoVelocidad: 0.30,
+  pesoCobertura: 0.15,
+  pesoEstabilidad: 0.15
 };
 
 // ============================================================================

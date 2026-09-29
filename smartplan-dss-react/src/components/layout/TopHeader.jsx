@@ -1,25 +1,16 @@
 import React from 'react'
-import { useLocation } from 'react-router-dom'
 
-/**
- * TopHeader — Refactorizado para usar React Router (useLocation).
- * Deriva el breadcrumb del pathname actual en vez de recibir activeView como prop.
- */
-export default function TopHeader({ zonas = [], selectedZonaId, onSelectZonaId, ubicacion, onToast }) {
-  const location = useLocation();
-
+export default function TopHeader({ activeView, zonas = [], selectedZonaId, onSelectZonaId, ubicacion, onToast }) {
   const getBreadcrumbTitle = () => {
-    const path = location.pathname.replace('/', '') || 'dashboard';
-    switch (path) {
-      case 'dashboard': return 'Recomendación de Planes (Top 3)';
-      case 'catalogo': return 'Gestión de Catálogo';
-      case 'cobertura': return 'Cobertura por Zona';
-      case 'perfiles': return 'Perfiles de Usuario';
-      case 'historial': return 'Historial de Recomendaciones';
-      case 'zonas': return 'Gestión de Zonas';
-      case 'admin': return 'Panel de Administración';
-      case 'wizard': return 'Asistente de Recomendación';
-      default: return 'Dashboard';
+    switch (activeView) {
+      case 'dashboard': return 'Recomendaciones';
+      case 'catalogo': return 'Catálogo de planes';
+      case 'cobertura': return 'Cobertura por zona';
+      case 'perfiles': return 'Mi perfil';
+      case 'historial': return 'Historial';
+      case 'zonas': return 'Zonas';
+      case 'admin': return 'Usuarios y roles';
+      default: return 'Inicio';
     }
   };
 
@@ -66,14 +57,14 @@ export default function TopHeader({ zonas = [], selectedZonaId, onSelectZonaId, 
         <button
           className="header-btn"
           title="Notificaciones"
-          onClick={() => onToast && onToast('No hay nuevas alertas del sistema SAW')}
+          onClick={() => onToast && onToast('No hay alertas nuevas')}
         >
           <i className="fa-regular fa-bell"></i>
         </button>
         <button
           className="header-btn"
           title="Configuración"
-          onClick={() => onToast && onToast('Configuración del motor SAW v1.0 activa')}
+          onClick={() => onToast && onToast('Ajusta tu presupuesto y tus criterios desde Mi perfil')}
         >
           <i className="fa-solid fa-gear"></i>
         </button>

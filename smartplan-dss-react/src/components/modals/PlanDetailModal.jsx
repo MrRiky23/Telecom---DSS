@@ -9,7 +9,7 @@ export default function PlanDetailModal({ plan, onClose, onConfirm }) {
         <div className="modal-header">
           <h3 className="modal-title">
             <i className="fa-solid fa-file-contract" style={{ color: 'var(--primary-500)', marginRight: '8px' }}></i>
-            Ficha Técnica del Plan — {plan.nombrePlan}
+            Ficha técnica del plan — {plan.nombrePlan}
           </h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>
             <i className="fa-solid fa-xmark"></i>
@@ -43,7 +43,7 @@ export default function PlanDetailModal({ plan, onClose, onConfirm }) {
 
             <div style={{ background: 'var(--neutral-50)', padding: '12px', borderRadius: 'var(--radius-md)' }}>
               <span style={{ color: 'var(--neutral-500)', fontSize: '0.72rem', textTransform: 'uppercase', display: 'block' }}>Índice de Estabilidad</span>
-              <strong style={{ color: 'var(--primary-500)' }}>{plan.indiceEstabilidad || 90} / 100</strong>
+              <strong style={{ color: 'var(--primary-500)' }}>{plan.indiceEstabilidad ?? 90} / 100</strong>
             </div>
 
             <div style={{ background: 'var(--neutral-50)', padding: '12px', borderRadius: 'var(--radius-md)' }}>
@@ -66,7 +66,7 @@ export default function PlanDetailModal({ plan, onClose, onConfirm }) {
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cerrar</button>
           <button className="btn btn-primary" onClick={() => { onConfirm && onConfirm(plan); onClose(); }}>
-            <i className="fa-solid fa-check"></i> Seleccionar Este Plan
+            <i className="fa-brands fa-whatsapp" aria-hidden="true"></i> Contactar por WhatsApp
           </button>
         </div>
       </div>

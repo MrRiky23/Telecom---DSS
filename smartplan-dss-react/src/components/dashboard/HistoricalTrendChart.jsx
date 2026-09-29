@@ -27,13 +27,13 @@ export default function HistoricalTrendChart({ dwFacts = [] }) {
       <div className="card-header">
         <h3 className="card-title">
           <i className="fa-solid fa-chart-line" style={{ color: 'var(--primary-500)', marginRight: '8px' }}></i>
-          Tendencia Histórica de Precios Promedio (Bolivia — DIM_Tiempo 2025)
+          Tendencia histórica del precio promedio
         </h3>
-        <span className="reco-tag recomendado">Analítica DW</span>
+        <span className="reco-tag recomendado">Histórico</span>
       </div>
       <div className="card-body">
         <p style={{ fontSize: '0.75rem', color: 'var(--neutral-500)', marginBottom: '16px' }}>
-          Evolución del precio promedio mensual registrado en <code>FACT_Recomendacion</code>. Fuente: planes comerciales verificados Tigo, Entel y Viva Bolivia 2025-2026.
+          Evolución del precio promedio mensual de los planes recomendados. Fuente: planes comerciales de Tigo, Entel y Viva (Bolivia, 2025-2026).
         </p>
 
         {trendData.length === 0 ? (

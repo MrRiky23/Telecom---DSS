@@ -13,16 +13,16 @@ export default function Top3PlanGrid({ top3 = [], onSelectPlan, onOpenDetail }) 
     <div style={{ marginTop: '32px' }}>
       <div style={{ marginBottom: '16px' }}>
         <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--neutral-900)' }}>
-          Detalle de Alternativas Recomendadas
+          Alternativas recomendadas
         </h2>
         <p style={{ fontSize: '0.8rem', color: 'var(--neutral-500)' }}>
-          Seleccione y confirme la alternativa óptima calculada por el motor SAW para iniciar su contratación.
+          Compare las alternativas y contacte al proveedor por WhatsApp para consultar por el plan que le interese.
         </p>
       </div>
 
       <div style={{ marginBottom: '16px' }}>
         <span className="reco-tag recomendado" style={{ padding: '5px 14px', fontSize: '0.7rem' }}>
-          <i className="fa-solid fa-sparkles"></i> Matriz de Decisión Optimizada
+          <i className="fa-solid fa-sparkles"></i> Ordenadas por puntaje
         </span>
       </div>
 
@@ -50,7 +50,7 @@ export default function Top3PlanGrid({ top3 = [], onSelectPlan, onOpenDetail }) 
               </div>
 
               <div className="plan-price-row">
-                <span className="plan-price-label">Tarifa Mensual</span>
+                <span className="plan-price-label">Tarifa mensual</span>
                 <span className="plan-price-value">
                   <span className="currency">Bs</span> {plan.precioMensual} <span className="currency">/mes</span>
                 </span>
@@ -67,7 +67,7 @@ export default function Top3PlanGrid({ top3 = [], onSelectPlan, onOpenDetail }) 
                 </div>
                 <div className="plan-spec">
                   <span className="spec-icon"><i className="fa-solid fa-piggy-bank"></i></span>
-                  Ahorro Estimado: <strong>Bs {plan.ahorroEstimado} /mes</strong>
+                  Ahorro estimado: <strong>Bs {plan.ahorroEstimado} /mes</strong>
                 </div>
                 <div className="plan-spec">
                   <span className="spec-icon"><i className="fa-solid fa-clock"></i></span>
@@ -80,14 +80,14 @@ export default function Top3PlanGrid({ top3 = [], onSelectPlan, onOpenDetail }) 
                   onClick={() => onSelectPlan && onSelectPlan(plan)}
                   className={`btn ${isRecommended ? 'btn-primary' : 'btn-outline'} btn-full`}
                 >
-                  Seleccionar Plan <i className="fa-solid fa-arrow-right"></i>
+                  <i className="fa-brands fa-whatsapp" aria-hidden="true"></i> Contactar por WhatsApp
                 </button>
                 <button
                   onClick={() => onOpenDetail && onOpenDetail(plan)}
                   className="btn btn-secondary btn-full"
                   style={{ fontSize: '0.75rem', border: 'none', background: 'none' }}
                 >
-                  Ver Ficha Técnica Completa
+                  Ver ficha técnica completa
                 </button>
               </div>
             </div>

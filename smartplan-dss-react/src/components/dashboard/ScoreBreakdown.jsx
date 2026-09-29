@@ -8,12 +8,12 @@ export default function ScoreBreakdown({ breakdown }) {
       <div className="card-header">
         <h3 className="card-title">
           <i className="fa-solid fa-chart-bar" style={{ color: 'var(--primary-500)', marginRight: '8px' }}></i>
-          Desglose de Puntaje por Criterio (Top 3)
+          Puntaje por criterio (Top 3)
         </h3>
       </div>
       <div className="card-body">
         <p style={{ fontSize: '0.75rem', color: 'var(--neutral-500)', marginBottom: '16px' }}>
-          Comparación ponderada en tiempo real de las variables clave del motor SAW
+          Peso de cada criterio en el puntaje de tus mejores planes
         </p>
 
         <div className="score-breakdown">

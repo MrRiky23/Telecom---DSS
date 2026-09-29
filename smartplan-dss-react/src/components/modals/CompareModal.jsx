@@ -23,7 +23,7 @@ export default function CompareModal({ planes = [], onClose }) {
         <div className="modal-header">
           <h3 className="modal-title">
             <i className="fa-solid fa-code-compare" style={{ color: 'var(--primary-500)', marginRight: '8px' }}></i>
-            Comparador Lado a Lado de Planes
+            Comparar planes
           </h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>
             <i className="fa-solid fa-xmark"></i>

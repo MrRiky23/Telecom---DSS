@@ -14,7 +14,7 @@ export default function MetricStrip({ kpis }) {
     <div className="metrics-strip">
       <div className="metric-card accent">
         <div className="metric-label">
-          Mejor Plan
+          Mejor plan
           <span className="label-badge">Recomendado</span>
         </div>
         <div className="metric-value">
@@ -25,7 +25,7 @@ export default function MetricStrip({ kpis }) {
 
       <div className="metric-card">
         <div className="metric-label">
-          Ahorro Especial
+          Ahorro mensual
           <span className="label-badge">Máximo</span>
         </div>
         <div className="metric-value">
@@ -35,7 +35,7 @@ export default function MetricStrip({ kpis }) {
       </div>
 
       <div className="metric-card">
-        <div className="metric-label">Planes Evaluados</div>
+        <div className="metric-label">Planes evaluados</div>
         <div className="metric-value">
           {planesEvaluados}
         </div>
@@ -49,7 +49,7 @@ export default function MetricStrip({ kpis }) {
         <div className="metric-value">
           {indiceCalidadPromedio}<span className="sub">/10</span>
         </div>
-        <div className="metric-detail">KPI Estimado promedio en zona</div>
+        <div className="metric-detail">Estabilidad promedio en tu zona</div>
       </div>
     </div>
   );

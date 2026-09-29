@@ -97,7 +97,7 @@ export default function RecomendacionWizard({ zonas = [], planes = [], onSaveRec
   return (
     <div className="card bg-white shadow-lg rounded-lg max-w-4xl mx-auto overflow-hidden">
       <div className="bg-gray-50 border-b p-4">
-        <h2 className="text-xl font-bold text-center" style={{ color: 'var(--primary-500)' }}>Asistente de Recomendación</h2>
+        <h2 className="text-xl font-bold text-center" style={{ color: 'var(--primary-500)' }}>Asistente de recomendación</h2>
         <div className="flex justify-center mt-4">
           <div className="flex items-center gap-4">
             <span className={`px-3 py-1 rounded-full text-sm font-bold ${paso >= 1 ? 'text-white' : 'bg-gray-200 text-gray-500'}`} style={paso >= 1 ? {backgroundColor: 'var(--primary-500)'} : {}}>1</span>
@@ -112,7 +112,7 @@ export default function RecomendacionWizard({ zonas = [], planes = [], onSaveRec
       <div className="p-6 min-h-[400px]">
         {paso === 1 && (
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold">Paso 1: Parámetros Básicos</h3>
+            <h3 className="text-lg font-semibold">Paso 1: Parámetros básicos</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -164,12 +164,12 @@ export default function RecomendacionWizard({ zonas = [], planes = [], onSaveRec
 
         {paso === 2 && (
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold">Paso 2: Selección y Orden de Criterios</h3>
+            <h3 className="text-lg font-semibold">Paso 2: Selección y orden de criterios</h3>
             <p className="text-gray-600 text-sm">Seleccione 2 o 3 criterios y ordénelos por importancia (el primero es el más importante).</p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="font-bold mb-3">Criterios Disponibles</h4>
+                <h4 className="font-bold mb-3">Criterios disponibles</h4>
                 <div className="space-y-2">
                   {CRITERIOS_DISPONIBLES.map(c => (
                     <label key={c.id} className="flex items-center gap-3 p-3 border rounded-md cursor-pointer hover:bg-gray-50">
@@ -186,7 +186,7 @@ export default function RecomendacionWizard({ zonas = [], planes = [], onSaveRec
               </div>
 
               <div>
-                <h4 className="font-bold mb-3">Orden de Importancia (Pesos ROC)</h4>
+                <h4 className="font-bold mb-3">Orden de importancia</h4>
                 {criteriosSeleccionados.length === 0 ? (
                   <div className="p-4 bg-gray-100 text-gray-500 rounded text-center italic">Seleccione criterios para ordenarlos</div>
                 ) : (
@@ -222,7 +222,7 @@ export default function RecomendacionWizard({ zonas = [], planes = [], onSaveRec
 
         {paso === 3 && (
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-center mb-6">Top 3 Recomendaciones</h3>
+            <h3 className="text-lg font-semibold text-center mb-6">Top 3 recomendaciones</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {resultadosSAW.map((plan, index) => (

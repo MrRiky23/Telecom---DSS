@@ -8,15 +8,12 @@
  * - §3.3 (HU-C08): simulación de una sola variable (peso o presupuesto).
  * - §4: ejemplo oráculo usado para las pruebas (ver test/sawEngine.oracle.test.js).
  *
- * Limitación conocida (no resuelta en este módulo): el PRD exige que la
- * cobertura se registre por combinación zona-proveedor (`ZonaCobertura`,
- * HU-C02) y que un proveedor sin fila de cobertura en la zona quede excluido
- * (D-6). El modelo de datos actual (seedData.js) solo guarda un
- * `nivelCobertura` e `idZona` fijos por plan, no una matriz zona×proveedor.
- * Mientras esa matriz no exista, `calculateSAW` filtra por
- * `plan.idZona === zonaId` como aproximación y usa `plan.nivelCobertura`
- * directamente. Esto es una desviación conocida de D-6, no una implementación
- * completa de HU-C02.
+ * Cobertura por zona (D-6, HU-C02): si se pasa `opciones.coberturas`
+ * (matriz zona × proveedor: [{ idzona, proveedor, nivelcobertura }]) junto con
+ * `opciones.zonaId`, solo compiten los planes de proveedores con cobertura
+ * registrada en esa zona, y `nivelCobertura` de cada plan se toma de esa matriz.
+ * Sin matriz (modo demo sin base de datos) no se filtra por zona y se usa el
+ * `nivelCobertura` propio del plan.
  */
 
 // ── Tabla de pesos ROC (PRD §3.2 / §4.0) ────────────────────────────────────
@@ -96,7 +93,8 @@ function normalizarMinMax(valor, min, max, esCosto) {
  * @param {Object} pesos - { pesoPrecio, pesoVelocidad, pesoCobertura, pesoEstabilidad }, deben sumar 1 (a 2 decimales).
  * @param {number} presupuestoMax - filtro duro de precio (D-5): precio <= presupuesto.
  * @param {Object} [opciones]
- * @param {number} [opciones.zonaId] - si se pasa, solo se consideran planes de esa zona (ver limitación arriba).
+ * @param {Array} [opciones.coberturas] - matriz zona × proveedor [{ idzona, proveedor, nivelcobertura }].
+ * @param {number} [opciones.zonaId] - zona seleccionada; con `opciones.coberturas` filtra por proveedor con cobertura en esa zona (D-6).
  * @returns {{ candidatos: Array, top3: Array, todos: Array, mensaje: string|null }}
  */
 export function calculateSAW(planes = [], pesos = {}, presupuestoMax = Infinity, opciones = {}) {
@@ -109,17 +107,24 @@ export function calculateSAW(planes = [], pesos = {}, presupuestoMax = Infinity,
 
   // Candidatos (§3.1.1): activos, precio <= presupuesto (filtro duro, D-5),
   // y de la zona solicitada si se especifica la matriz de cobertura (D-6).
-  const candidatos = planes.filter((p) => {
-    if (p.activo === false) return false;
-    if (Number(p.precioMensual) > presupuestoMax) return false;
-    if (coberturas && coberturas.length > 0 && zonaId != null) {
-      const cob = coberturas.find(c => c.idzona === zonaId && c.proveedor === p.proveedor);
-      if (!cob) return false; // Excluido por regla D-6 (sin cobertura en la zona)
-    } else if (zonaId != null && p.idZona && p.idZona !== zonaId && p.idZona !== 1) {
-      // Si no hay matriz, permitir planes del eje o de la zona seleccionada
+  const normProv = (v) => String(v ?? '').trim().toLowerCase();
+  const usaMatriz = Array.isArray(coberturas) && coberturas.length > 0 && zonaId != null;
+
+  const candidatos = planes.reduce((acc, p) => {
+    if (p.activo === false) return acc;
+    if (Number(p.precioMensual) > presupuestoMax) return acc;
+    if (usaMatriz) {
+      const cob = coberturas.find(
+        c => Number(c.idzona) === Number(zonaId) && normProv(c.proveedor) === normProv(p.proveedor)
+      );
+      if (!cob) return acc; // Excluido por regla D-6 (sin cobertura registrada en la zona)
+      // La cobertura del plan es la de su proveedor EN LA ZONA seleccionada.
+      acc.push({ ...p, nivelCobertura: cob.nivelcobertura });
+    } else {
+      acc.push(p);
     }
-    return true;
-  });
+    return acc;
+  }, []);
 
   // Caso borde: 0 candidatos (§3.1.5) — no se persiste nada, solo se informa.
   if (candidatos.length === 0) {
@@ -157,15 +162,15 @@ export function calculateSAW(planes = [], pesos = {}, presupuestoMax = Infinity,
     const velocidad = Number(plan.velocidadMbps);
     const estabilidad = Number(plan.indiceEstabilidad ?? 0); // 0 es un valor válido: NO usar `||`
 
-    const nPrecio = round4(normalizarMinMax(precio, minPrecio, maxPrecio, true));
-    const nVelocidad = round4(normalizarMinMax(velocidad, minVelocidad, maxVelocidad, false));
-    const nCobertura = round4(mapCoberturaToScore(plan.nivelCobertura));
-    const nEstabilidad = round4(estabilidad / 100);
+    const nPrecio = normalizarMinMax(precio, minPrecio, maxPrecio, true);
+    const nVelocidad = normalizarMinMax(velocidad, minVelocidad, maxVelocidad, false);
+    const nCobertura = mapCoberturaToScore(plan.nivelCobertura);
+    const nEstabilidad = estabilidad / 100;
 
-    const puntajePrecio = round4(wPrecio * nPrecio);
-    const puntajeVelocidad = round4(wVelocidad * nVelocidad);
-    const puntajeCobertura = round4(wCobertura * nCobertura);
-    const puntajeEstabilidad = round4(wEstabilidad * nEstabilidad);
+    const puntajePrecio = wPrecio * nPrecio;
+    const puntajeVelocidad = wVelocidad * nVelocidad;
+    const puntajeCobertura = wCobertura * nCobertura;
+    const puntajeEstabilidad = wEstabilidad * nEstabilidad;
 
     const puntajeGlobal = round4(puntajePrecio + puntajeVelocidad + puntajeCobertura + puntajeEstabilidad);
 
@@ -208,7 +213,7 @@ export function calculateSAW(planes = [], pesos = {}, presupuestoMax = Infinity,
   const proveedoresActivos = new Set(ranking.map(p => p.proveedor)).size;
 
   const indiceCalidadPromedio = ranking.length > 0
-    ? round2((ranking.reduce((acc, p) => acc + (Number(p.indiceEstabilidad) || 90), 0) / (ranking.length * 10)))
+    ? round2((ranking.reduce((acc, p) => acc + (Number(p.indiceEstabilidad ?? 90)), 0) / (ranking.length * 10)))
     : 0;
 
   const kpis = {

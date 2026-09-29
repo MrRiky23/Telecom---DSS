@@ -16,31 +16,11 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setMessage('');
-
-    const lockoutUntil = localStorage.getItem('lockout_until');
-    if (lockoutUntil && Date.now() < parseInt(lockoutUntil, 10)) {
-      const remainingMin = Math.ceil((parseInt(lockoutUntil, 10) - Date.now()) / 60000);
-      setError(`Usuario inexistente, contraseña incorrecta o cuenta bloqueada (intenta en ${remainingMin} min).`);
-      return;
-    }
-
     setLoading(true);
     const { error: err } = await signIn(email, password);
     setLoading(false);
-    
     if (err) {
-      let attempts = parseInt(localStorage.getItem('login_attempts') || '0', 10) + 1;
-      if (attempts >= 5) {
-        localStorage.setItem('lockout_until', (Date.now() + 15 * 60 * 1000).toString());
-        localStorage.setItem('login_attempts', '0');
-        setError('Usuario inexistente, contraseña incorrecta o cuenta bloqueada (intenta en 15 min).');
-      } else {
-        localStorage.setItem('login_attempts', attempts.toString());
-        setError('Usuario inexistente, contraseña incorrecta o cuenta bloqueada');
-      }
-    } else {
-      localStorage.removeItem('login_attempts');
-      localStorage.removeItem('lockout_until');
+      setError('Credenciales incorrectas o cuenta no verificada');
     }
   };
 
@@ -101,7 +81,7 @@ export default function LoginPage() {
             SmartPlan DSS
           </h1>
           <p style={{ margin: '0.5rem 0 0', opacity: 0.8, fontSize: '0.9rem' }}>
-            Plataforma de Decisión Inteligente
+            Compara y elige tu plan de telecomunicaciones
           </p>
         </div>
 

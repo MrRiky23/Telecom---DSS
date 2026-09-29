@@ -116,10 +116,10 @@ export default function CoberturaView() {
           </div>
           <div>
             <h1 className="page-title" style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, color: 'var(--neutral-900)' }}>
-              Matriz de Cobertura por Zona
+              Cobertura por zona
             </h1>
             <p className="page-subtitle" style={{ margin: '4px 0 0', color: 'var(--neutral-500)', fontSize: '0.88rem' }}>
-              Disponibilidad de infraestructura fija y móvil por operadora en Bolivia (Regla D-6)
+              Disponibilidad de infraestructura fija y móvil por operadora en Bolivia
             </p>
           </div>
         </div>
@@ -186,10 +186,10 @@ export default function CoberturaView() {
                     Operadora / Proveedor
                   </th>
                   <th style={{ padding: '14px 24px', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--neutral-600)', fontWeight: 700 }}>
-                    Nivel de Cobertura Registrado
+                    Nivel de cobertura registrado
                   </th>
                   <th style={{ padding: '14px 24px', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--neutral-600)', fontWeight: 700 }}>
-                    Estado en el Motor SAW
+                    Estado en la recomendación
                   </th>
                 </tr>
               </thead>
@@ -258,7 +258,7 @@ export default function CoberturaView() {
                           </span>
                         ) : (
                           <span style={{ color: '#B91C1C', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <i className="fa-solid fa-ban" style={{ color: '#EF4444' }}></i> Excluido por regla D-6 (Sin Cobertura)
+                            <i className="fa-solid fa-ban" style={{ color: '#EF4444' }}></i> Excluido (sin cobertura en esta zona)
                           </span>
                         )}
                       </td>

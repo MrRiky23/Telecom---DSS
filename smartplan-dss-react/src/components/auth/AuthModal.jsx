@@ -26,7 +26,7 @@ export default function AuthModal({ currentUser, onSwitchRole, onClose }) {
         <div className="modal-header">
           <h3 className="modal-title">
             <i className="fa-solid fa-user-shield" style={{ color: 'var(--primary-500)', marginRight: '8px' }}></i>
-            Control de Autenticación & Rol (Supabase Auth)
+            Tu cuenta y rol
           </h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>
             <i className="fa-solid fa-xmark"></i>
@@ -57,7 +57,7 @@ export default function AuthModal({ currentUser, onSwitchRole, onClose }) {
                     Administrador Operativo
                   </strong>
                   <p style={{ fontSize: '0.75rem', color: 'var(--neutral-500)', marginTop: '2px' }}>
-                    Acceso total a la gestión del Catálogo (CRUD), índice de estabilidad y precios.
+                    Acceso total a la gestión del catálogo, índice de estabilidad y precios.
                   </p>
                 </div>
                 {currentUser?.esAdmin && <i className="fa-solid fa-circle-check" style={{ color: 'var(--primary-500)', fontSize: '1.2rem' }}></i>}

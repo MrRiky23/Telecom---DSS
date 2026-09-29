@@ -1,16 +1,9 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 
-/**
- * Sidebar — Refactorizado para usar React Router (NavLink).
- * Cada enlace ahora genera una URL real (/dashboard, /catalogo, etc.)
- * en lugar de modificar estado interno con setActiveView.
- */
 export default function Sidebar({ rol = 'usuario', userEmail, onSignOut }) {
   const currentEmail = userEmail || 'Usuario';
-
-  // Helper que genera className para NavLink con el estilo activo
-  const linkClass = ({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`;
+  const navigate = useNavigate();
 
   return (
     <aside className="sidebar">
@@ -22,38 +15,38 @@ export default function Sidebar({ rol = 'usuario', userEmail, onSignOut }) {
           </span>
           SmartPlan
         </h1>
-        <div className="brand-subtitle">DSS System</div>
+        <div className="brand-subtitle">Asesor de planes</div>
       </div>
 
       {/* Navigation Section */}
       <div className="sidebar-section" style={{ flex: 1, overflowY: 'auto' }}>
-        <div className="sidebar-section-title">Menú Principal</div>
+        <div className="sidebar-section-title">Menú principal</div>
         <ul className="sidebar-nav">
           <li>
-            <NavLink to="/dashboard" className={linkClass} end>
+            <NavLink to="/dashboard" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
               <span className="link-icon"><i className="fa-solid fa-chart-line"></i></span>
-              Dashboard (Ranking)
+              Recomendaciones
             </NavLink>
           </li>
 
           {(rol === 'admin' || rol === 'gerente') && (
             <li>
-              <NavLink to="/catalogo" className={linkClass}>
+              <NavLink to="/catalogo" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
                 <span className="link-icon"><i className="fa-solid fa-box"></i></span>
-                Catálogo de Planes
+                Catálogo de planes
               </NavLink>
             </li>
           )}
 
           <li>
-            <NavLink to="/cobertura" className={linkClass}>
+            <NavLink to="/cobertura" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
               <span className="link-icon"><i className="fa-solid fa-signal"></i></span>
-              Cobertura por Zona
+              Cobertura por zona
             </NavLink>
           </li>
 
           <li>
-            <NavLink to="/historial" className={linkClass}>
+            <NavLink to="/historial" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
               <span className="link-icon"><i className="fa-solid fa-clock-rotate-left"></i></span>
               Historial
             </NavLink>
@@ -61,7 +54,7 @@ export default function Sidebar({ rol = 'usuario', userEmail, onSignOut }) {
 
           {rol === 'admin' && (
             <li>
-              <NavLink to="/zonas" className={linkClass}>
+              <NavLink to="/zonas" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
                 <span className="link-icon"><i className="fa-solid fa-map-location-dot"></i></span>
                 Zonas
               </NavLink>
@@ -69,7 +62,7 @@ export default function Sidebar({ rol = 'usuario', userEmail, onSignOut }) {
           )}
 
           <li>
-            <NavLink to="/perfiles" className={linkClass}>
+            <NavLink to="/perfiles" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
               <span className="link-icon"><i className="fa-solid fa-sliders"></i></span>
               Perfiles
             </NavLink>
@@ -79,9 +72,9 @@ export default function Sidebar({ rol = 'usuario', userEmail, onSignOut }) {
             <>
               <div className="sidebar-section-title" style={{ marginTop: '16px' }}>Administración</div>
               <li>
-                <NavLink to="/admin" className={linkClass}>
+                <NavLink to="/admin" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
                   <span className="link-icon"><i className="fa-solid fa-user-gear"></i></span>
-                  Panel Admin
+                  Usuarios y roles
                 </NavLink>
               </li>
             </>
