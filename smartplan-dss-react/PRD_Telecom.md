@@ -2,11 +2,7 @@
 
 > Este documento reemplaza a los dos addenda anteriores (`PRD_addendum_v1.2.md` y `PRD_Telecom.md`). Donde ambos se contradecían, **prevalece la Parte 1** (motor SAW, pesos ROC a 2 decimales, una sola simulación confirmada por variable). Cada decisión cita su origen. Todo lo marcado **[D-n]** es una decisión que el Squad DEBE ratificar antes de desarrollo; hasta entonces su estado es *Propuesta*.
 >
-> **Lenguaje normativo:** DEBE / NO DEBE = obligatorio y verificable. DEBERÍA = recomendado. Ante cualquier ambigüedad que este documento no resuelva, la persona o el agente **se detiene y pregunta**; no la resuelve por su cuenta ni edita este documento para "cerrarla" (regla 4.5 de la Parte 1, ahora §1).
->
-> **Convención de nombres:** identificadores lógicos en camelCase; en PostgreSQL sin comillas se pliegan a minúsculas. Las migraciones NO DEBEN usar comillas dobles en nombres de columna.
 
-### Registro de reconciliación (qué cambió respecto a los dos addenda previos)
 
 | Punto de conflicto | Addendum Parte 1 | Addendum Parte 2 (v2.0, mío) | Queda en v1.2 | Motivo |
 |---|---|---|---|---|
