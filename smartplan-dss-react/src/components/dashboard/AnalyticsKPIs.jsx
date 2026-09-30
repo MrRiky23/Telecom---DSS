@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { fetchKpiPrecioVelocidad, fetchKpiZonas, fetchKpiSimulaciones } from '../../services/recomendacionService';
 import { initialDWFacts } from '../../data/seedData';
-import { isSupabaseConfigured } from '../../config/supabaseClient';
+import { isSupabaseConfigured } from '../../lib/supabaseClient';
 
 // Adaptadores: convierten las filas que devuelven las funciones SQL (snake_case, por mes / rango)
 // al formato que usa la pantalla. Nada de esto inventa datos: si la BD no devuelve filas, queda vacío.

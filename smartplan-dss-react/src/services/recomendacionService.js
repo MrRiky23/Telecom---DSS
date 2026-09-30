@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '../config/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 export async function getOrCreateUserProfileId() {
   if (!isSupabaseConfigured) throw new Error("Supabase no está configurado.");

@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:test": "node scripts/test-supabase.js",
+    "db:update": "node scripts/update-supabase-data.js",
+    "db:cleanup-zones": "node scripts/cleanup-old-zones.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

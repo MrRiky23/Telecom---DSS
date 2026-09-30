@@ -1,12 +1,12 @@
-import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react'
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Sidebar from './components/layout/Sidebar'
 import TopHeader from './components/layout/TopHeader'
-import DashboardView from './views/DashboardView'
-import CatalogoView from './views/CatalogoView'
-import CoberturaView from './views/CoberturaView'
-import PerfilesView from './views/PerfilesView'
+import DashboardView from './pages/DashboardView'
+import CatalogoView from './pages/CatalogoView'
+import CoberturaView from './pages/CoberturaView'
+import PerfilesView from './pages/PerfilesView'
 import WeightAdjustModal from './components/modals/WeightAdjustModal'
 import SimulationModal from './components/modals/SimulationModal'
 import PlanDetailModal from './components/modals/PlanDetailModal'
@@ -14,18 +14,21 @@ import ContactModal from './components/modals/ContactModal'
 import CompareModal from './components/modals/CompareModal'
 import PDFReportModal from './components/modals/PDFReportModal'
 import Toast from './components/common/Toast'
+import FullScreenLoader from './components/common/FullScreenLoader'
 import LoginPage from './pages/LoginPage'
 
 import { initialPlanes, initialZonas, initialPerfil, initialDWFacts } from './data/seedData'
 import { calculateSAW, pesosDesdeCriteriosROC, simularAjusteDePeso } from './engine/sawEngine'
-import { supabase, isSupabaseConfigured } from './config/supabaseClient'
-import { loadInitialDataFromSupabase, syncInsertPlan, syncUpdatePlan, syncDeletePlan, getNivelCobertura } from './config/supabaseServices'
+import { supabase, isSupabaseConfigured } from './lib/supabaseClient'
+import { loadInitialDataFromSupabase, syncInsertPlan, syncUpdatePlan, syncDeletePlan, getNivelCobertura } from './services/supabaseServices'
 import { saveRecomendacion, saveSimulacion } from './services/recomendacionService'
+import { useToast } from './hooks/useToast'
+import { exportarDictamenCSV, exportarDictamenJSON } from './utils/exportDictamen'
 
-const ZonasView = lazy(() => import('./views/ZonasView').catch(() => ({ default: () => <div>Vista Zonas en construcción...</div> })));
-const HistorialView = lazy(() => import('./views/HistorialView').catch(() => ({ default: () => <div>Vista Historial en construcción...</div> })));
-const AdminView = lazy(() => import('./views/AdminView').catch(() => ({ default: () => <div>Vista Admin en construcción...</div> })));
-const RecomendacionWizard = lazy(() => import('./components/recomendacion/RecomendacionWizard').catch(() => ({ default: () => <div>Wizard en construcción...</div> })));
+const ZonasView = lazy(() => import('./pages/ZonasView').catch(() => ({ default: () => <div>Vista Zonas en construcción...</div> })));
+const HistorialView = lazy(() => import('./pages/HistorialView').catch(() => ({ default: () => <div>Vista Historial en construcción...</div> })));
+const AdminView = lazy(() => import('./pages/AdminView').catch(() => ({ default: () => <div>Vista Admin en construcción...</div> })));
+const RecomendacionWizard = lazy(() => import('./pages/RecomendacionWizard').catch(() => ({ default: () => <div>Wizard en construcción...</div> })));
 
 function App() {
   const { session, user, perfil, criterios, rol, loading, signOut, updatePerfil } = useAuth();
@@ -78,34 +81,7 @@ function App() {
   const [selectedPlanDetail, setSelectedPlanDetail] = useState(null);
   const [planContacto, setPlanContacto] = useState(null);
 
-  const [toastMessage, setToastMessage] = useState(null);
-  const [toastType, setToastType] = useState('info');
-
-  // Un solo temporizador activo: cada toast nuevo cancela el anterior para no desaparecer antes de tiempo.
-  const toastTimerRef = useRef(null);
-
-  const hideToast = () => {
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = null;
-    }
-    setToastMessage(null);
-  };
-
-  const showToast = (msg, type = 'info') => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToastMessage(msg);
-    setToastType(type);
-    toastTimerRef.current = setTimeout(() => {
-      toastTimerRef.current = null;
-      setToastMessage(null);
-    }, 3500);
-  };
-
-  // Limpia el temporizador al desmontar el componente.
-  useEffect(() => () => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-  }, []);
+  const { toastMessage, toastType, showToast, hideToast } = useToast();
 
   // Carga (o recarga) los datos desde Supabase. Con soloZonas = true solo refresca zonas y
   // cobertura (lo usa la pantalla de Zonas tras un cambio), sin tocar planes ni pesos.
@@ -379,30 +355,12 @@ function App() {
   };
 
   const handleExportCSV = () => {
-    const csvContent = "data:text/csv;charset=utf-8,"
-      + "Posicion,Proveedor,NombrePlan,Precio,Velocidad,PuntajeGlobal\n"
-      + sawResult.top3.map(p => [p.posicionRanking, p.proveedor, p.nombrePlan, p.precioMensual, p.velocidadMbps, p.puntajeGlobal]
-          .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(",")).join("\n");
-
-    const encodedUri = encodeURI(csvContent).replace(/#/g, '%23');
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `dictamen_smartplan_top3_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
+    exportarDictamenCSV(sawResult);
     showToast('Dictamen de recomendación Top 3 descargado en CSV', 'success');
   };
 
   const handleExportJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sawResult, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `dictamen_smartplan_${Date.now()}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+    exportarDictamenJSON(sawResult);
     showToast('Resumen analítico exportado en JSON', 'success');
   };
 
@@ -471,13 +429,7 @@ function App() {
   };
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#F8FAFC' }}>
-        <div style={{ width: '50px', height: '50px', border: '5px solid #E2E8F0', borderTop: '5px solid #3B82F6', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-        <p style={{ marginTop: '16px', color: '#475569', fontWeight: '500' }}>Cargando SmartPlan...</p>
-        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
+    return <FullScreenLoader />;
   }
 
   if (!session) {
